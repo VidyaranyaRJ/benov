@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket         = "vj-test-ecr-79"  
+    bucket         = "vj-test-benv"  
     key            = "terraform.tfstate"  
     region         = "us-east-2" 
     encrypt        = true
