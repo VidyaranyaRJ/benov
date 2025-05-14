@@ -16,7 +16,7 @@ variable "sg_name" {
 
 
 
-variable "ec2_tag_name" {
-  type = string
-  description = "EC2 tag name"
-}
+# variable "ec2_tag_name" {
+#   type = string
+#   description = "EC2 tag name"
+# }
