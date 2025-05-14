@@ -13,6 +13,6 @@ locals {
 }
 
 module "network" {
-  source                                 = "../modules/network"
+  source                                 = "../../modules/Network"
   sg_name = local.sg_name
 }
