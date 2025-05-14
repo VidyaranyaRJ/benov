@@ -9,53 +9,52 @@ resource "aws_instance" "ecs_instance" {
   vpc_security_group_ids      = [var.sg_id]
   iam_instance_profile        = data.aws_iam_instance_profile.ecs_profile.name
   associate_public_ip_address = true
-  key_name                    = "vj-test"
+  key_name                    = "vj-test-1"
   user_data = <<-EOF
     #!/bin/bash
     exec > /var/log/user-data.log 2>&1
     set -e
 
-    echo "Updating system and installing required packages..."
+    echo "[1/8] Installing base packages"
     apt-get update -y
     apt-get install -y nfs-common git curl
 
-    echo "Installing Node.js 18..."
+    echo "[2/8] Installing Node.js 18"
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
 
-    echo "Creating EFS mount directories..."
+    echo "[3/8] Creating EFS mount points"
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
 
-    echo "Mounting EFS volumes..."
+    echo "[4/8] Mounting EFS volumes"
     mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
     mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
     mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
-    echo "Persisting mounts in /etc/fstab..."
+    echo "[5/8] Persisting mounts in /etc/fstab"
     echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "Cloning GitHub repository..."
-    if [ ! -d "/mnt/efs/code/application" ]; then
-      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application || echo "Git clone failed"
+    echo "[6/8] Cloning GitHub repo into /mnt/efs/code"
+    if [ ! -d "/mnt/efs/code/.git" ]; then
+      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
     fi
 
-    echo "Fixing ownership to ubuntu"
+    echo "[7/8] Setting EFS ownership to ubuntu"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "Installing application dependencies..."
-    cd /mnt/efs/code/application/nodejs
-    sudo -u ubuntu npm install
-
-    echo "Installing and setting up PM2..."
-    npm install -g pm2
-
-    export PATH=$PATH:/usr/local/bin
-    sudo -u ubuntu pm2 start /mnt/efs/code/application/nodejs/index.js --name nodejs-app
-    sudo -u ubuntu pm2 save
-    sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
+    echo "[8/8] Installing dependencies and starting app as ubuntu user"
+    sudo -u ubuntu bash -c "
+      cd /mnt/efs/code/nodejs &&
+      npm install &&
+      npm install -g pm2 &&
+      pm2 start index.js --name nodejs-app &&
+      pm2 save &&
+      pm2 startup systemd -u ubuntu --hp /home/ubuntu
+    "
   EOF
+
 
 
   tags = {
