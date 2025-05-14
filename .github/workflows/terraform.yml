@@ -7,7 +7,7 @@ on:
 
 env:
   TF_STATE_BUCKET: vj-test-benv
-  TF_STATE_KEY: "terraform.tfstate"
+  TF_STATE_KEY: "EFS/terraform.tfstate"
   AWS_REGION: us-east-2
 
 jobs:
@@ -54,9 +54,9 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-      # - name: Terraform Apply
-      #   run: terraform apply -auto-approve tfplan
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
         
-      # Uncomment if you need to perform a destroy operation
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
+      # # Uncomment if you need to perform a destroy operation
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve
