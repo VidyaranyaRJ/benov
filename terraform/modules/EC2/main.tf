@@ -35,8 +35,9 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
     echo "[5] Clean and clone repo"
-    rm -rf /mnt/efs/code/* /mnt/efs/code/.git
+    find /mnt/efs/code -mindepth 1 -delete
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
+
 
     echo "[6] Fix ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
@@ -46,7 +47,8 @@ resource "aws_instance" "ecs_instance" {
     sudo -u ubuntu npm install
 
     echo "[8] Install PM2 globally"
-    sudo npm install -g pm2
+    sudo -u ubuntu -E npm install -g pm2
+    sudo ln -sf $(which pm2) /usr/bin/pm2
 
     echo "[9] Start app with PM2"
     cd /mnt/efs/code/nodejs
