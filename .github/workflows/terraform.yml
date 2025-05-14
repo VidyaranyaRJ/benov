@@ -94,9 +94,9 @@ jobs:
               "echo Step 5: Install PM2 globally and make available system-wide",
               "export PATH=$PATH:/usr/local/bin",
               "sudo npm install -g pm2",
-              "if [ ! -f /usr/local/bin/pm2 ]; then echo '❌ PM2 binary not found after install. Exiting.'; exit 1; fi",
+              "test -f /usr/local/bin/pm2 || (echo 'PM2 binary not found after install. Exiting.' && exit 1)",
               "sudo ln -sf /usr/local/bin/pm2 /usr/bin/pm2",
-              "pm2 -v || echo '❌ pm2 still not found in PATH'"
+              "pm2 -v || echo 'pm2 still not found in PATH'",
 
               "echo Step 6: Restart or start app",
               "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
