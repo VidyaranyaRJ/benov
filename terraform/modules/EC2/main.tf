@@ -19,7 +19,7 @@ resource "aws_instance" "ecs_instance" {
     apt-get update -y
     apt-get install -y nfs-common git curl
 
-    echo "[2] Install Node.js 18"
+    echo "[2] Install Node.js 18 and npm"
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
 
@@ -34,36 +34,29 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "[5] Clean and clone repo"
+    echo "[5] Clone repo fresh"
     find /mnt/efs/code -mindepth 1 -delete
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
 
-
-    echo "[6] Fix ownership"
+    echo "[6] Set correct ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "[7] Install local dependencies (PM2 and project deps)"
+    echo "[7] Install project dependencies + local PM2"
     cd /mnt/efs/code/nodejs
-
-    # Install dependencies locally inside the project (node_modules in this folder)
     sudo -u ubuntu npm install
-
-    # Install pm2 locally (within project scope)
     sudo -u ubuntu npm install pm2 --save
 
-    # Use pm2 via npx or local path
-    echo "[8] Start app with PM2"
+    echo "[8] Start app with local PM2"
     sudo -u ubuntu ./node_modules/.bin/pm2 start index.js --name nodejs-app
     sudo -u ubuntu ./node_modules/.bin/pm2 save
 
-
-    echo "[9] Start app with PM2"
-    cd /mnt/efs/code/nodejs
-    sudo -u ubuntu pm2 start index.js --name nodejs-app
-    sudo -u ubuntu pm2 save
-    sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
+    echo "[9] Configure PM2 to run on boot"
+    export PM2_HOME="/home/ubuntu/.pm2"
+    su - ubuntu -c "export PATH=/mnt/efs/code/nodejs/node_modules/.bin:\$PATH && ./node_modules/.bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu"
+    su - ubuntu -c "export PATH=/mnt/efs/code/nodejs/node_modules/.bin:\$PATH && ./node_modules/.bin/pm2 save"
 
     echo "[10] Health check"
+    sleep 5
     curl http://localhost:3000 || echo "App failed to respond"
   EOF
 
