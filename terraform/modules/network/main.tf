@@ -77,3 +77,4 @@ resource "aws_security_group" "ecs_security_group" {
 
   depends_on = [ aws_vpc.my_vpc ]
 }
+
