@@ -54,9 +54,9 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
         
-      # # Uncomment if you need to perform a destroy operation
-      # - name: Terraform Destroy
-      #   run: terraform destroy -auto-approve
+      # Uncomment if you need to perform a destroy operation
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
