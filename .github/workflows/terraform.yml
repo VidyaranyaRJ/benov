@@ -7,7 +7,7 @@ on:
 
 env:
   TF_STATE_BUCKET: vj-test-benv
-  TF_STATE_KEY: "EC2/terraform.tfstate"   # Network EFS EC2
+  TF_STATE_KEY: "EFS/terraform.tfstate"   # Network EFS EC2
   AWS_REGION: us-east-2
 
 jobs:
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./terraform/code/EC2   # Network EFS EC2
+        working-directory: ./terraform/code/EFS   # Network EFS EC2
 
     steps:
       - name: Checkout Repository
