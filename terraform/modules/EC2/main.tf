@@ -41,20 +41,22 @@ resource "aws_instance" "ecs_instance" {
       git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application || echo "Git clone failed"
     fi
 
-    echo "Fixing ownership to ubuntu user"
+    echo "Fixing ownership to ubuntu"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "Installing application dependencies and starting app..."
+    echo "Installing application dependencies..."
     cd /mnt/efs/code/application/nodejs
-    npm install
+    sudo -u ubuntu npm install
+
+    echo "Installing and setting up PM2..."
     npm install -g pm2
 
     export PATH=$PATH:/usr/local/bin
-    pm2 start index.js --name nodejs-app
-    pm2 save
-    pm2 startup systemd
-    sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu
+    sudo -u ubuntu pm2 start /mnt/efs/code/application/nodejs/index.js --name nodejs-app
+    sudo -u ubuntu pm2 save
+    sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
   EOF
+
 
   tags = {
     Name = var.ec2_tag_name
