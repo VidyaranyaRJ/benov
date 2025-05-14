@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./terraform/code/
+        working-directory: ./terraform/code/EFS
 
     steps:
       - name: Checkout Repository
@@ -51,8 +51,8 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false  -out=tfplan
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve 
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve 
 
 
       - name: Terraform Apply
