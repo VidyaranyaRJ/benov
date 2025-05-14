@@ -25,39 +25,38 @@ resource "aws_instance" "ecs_instance" {
 
     echo "[3] Mount EFS volumes"
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-    mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
-    mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
-    mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
     echo "[4] Persist mounts"
-    echo "${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-    echo "${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-    echo "${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
     echo "[5] Clean and clone repo"
-    rm -rf /mnt/efs/code/* /mnt/efs/code/.git || true
+    rm -rf /mnt/efs/code/* /mnt/efs/code/.git
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
 
     echo "[6] Fix ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "[7] Install Node.js dependencies"
+    echo "[7] Install dependencies"
     cd /mnt/efs/code/nodejs
     sudo -u ubuntu npm install
 
     echo "[8] Install PM2 globally"
     sudo npm install -g pm2
-    sudo ln -sf $(which pm2) /usr/bin/pm2
 
     echo "[9] Start app with PM2"
+    cd /mnt/efs/code/nodejs
     sudo -u ubuntu pm2 start index.js --name nodejs-app
     sudo -u ubuntu pm2 save
     sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
 
     echo "[10] Health check"
-    curl http://localhost:3000 || echo "App did not respond on port 3000"
+    curl http://localhost:3000 || echo "App failed to respond"
   EOF
-
 
 
   tags = {
