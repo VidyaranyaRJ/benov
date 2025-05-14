@@ -34,10 +34,8 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "[5/10] Cloning repo"
-    if [ -d "/mnt/efs/code/.git" ]; then
-      rm -rf /mnt/efs/code/*
-    fi
+    echo "[5/10] Cleaning and cloning repo"
+    rm -rf /mnt/efs/code/* /mnt/efs/code/.git
     git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
     chown -R ubuntu:ubuntu /mnt/efs/code
 
