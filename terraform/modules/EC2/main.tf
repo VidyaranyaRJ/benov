@@ -1,5 +1,5 @@
 data "aws_iam_instance_profile" "ecs_profile" {
-  name = "vj-ecs-ec2-1"
+  name = "vj-ec2"
 }
 
 resource "aws_instance" "ecs_instance" {
