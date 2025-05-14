@@ -37,19 +37,24 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
     echo "Cloning GitHub repository..."
-    if [ ! -d "/mnt/efs/code/.git" ]; then
-      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || echo "Git clone failed"
+    if [ ! -d "/mnt/efs/code/application" ]; then
+      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application || echo "Git clone failed"
     fi
 
+    echo "Fixing ownership to ubuntu user"
+    chown -R ubuntu:ubuntu /mnt/efs/code
+
     echo "Installing application dependencies and starting app..."
-    cd /mnt/efs/code
+    cd /mnt/efs/code/application/nodejs
     npm install
     npm install -g pm2
-    pm2 start index.js
+
+    export PATH=$PATH:/usr/local/bin
+    pm2 start index.js --name nodejs-app
     pm2 save
+    pm2 startup systemd
+    sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu
   EOF
-
-
 
   tags = {
     Name = var.ec2_tag_name

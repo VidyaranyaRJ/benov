@@ -54,34 +54,36 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
 
 
-      # - name: Terraform Destroy
-      #   run: terraform destroy -auto-approve
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: terraform
-    steps:
-      - name: Trigger SSM to update EFS code on EC2
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: terraform
+  #   steps:
+  #     - name: Trigger SSM to update EFS code on EC2
+  #       uses: aws-actions/configure-aws-credentials@v2
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-2
 
-      - run: |
-          aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
-            --comment "Ensure app code exists, then pull latest" \
-            --parameters 'commands=[
-              "if [ ! -d /mnt/efs/code/application ]; then git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application; fi",
-              "cd /mnt/efs/code/application",
-              "git pull origin nodejs",
-              "npm install",
-              "pm2 restart all"
-            ]' \
-            --region us-east-2
+  #     - run: |
+  #         aws ssm send-command \
+  #           --document-name "AWS-RunShellScript" \
+  #           --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
+  #           --comment "Pull latest code and restart Node app" \
+  #           --parameters 'commands=[
+  #             "cd /mnt/efs/code/application || git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application",
+  #             "chown -R ubuntu:ubuntu /mnt/efs/code",
+  #             "cd /mnt/efs/code/application/nodejs",
+  #             "git pull origin nodejs",
+  #             "npm install",
+  #             "/usr/local/bin/pm2 restart all"
+  #           ]' \
+  #           --region us-east-2
+
