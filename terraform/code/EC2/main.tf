@@ -12,7 +12,7 @@ data "terraform_remote_state" "network" {
   backend = "s3"
   config = {
     bucket = "vj-test-benv"
-    key    = "network/terraform.tfstate"
+    key    = "Network/terraform.tfstate"
     region = "us-east-2"
   }
 }
