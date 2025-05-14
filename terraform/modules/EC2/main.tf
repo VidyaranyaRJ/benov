@@ -25,51 +25,37 @@ resource "aws_instance" "ecs_instance" {
 
     echo "[3] Mount EFS volumes"
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-    mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
-    mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
-    mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
+    mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
+    mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
+    mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
 
     echo "[4] Persist mounts"
-    echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-    echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-    echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
     echo "[5] Clean and clone repo"
-    rm -rf /mnt/efs/code/* /mnt/efs/code/.git
+    rm -rf /mnt/efs/code/* /mnt/efs/code/.git || true
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
 
     echo "[6] Fix ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "[7] Install dependencies"
+    echo "[7] Install Node.js dependencies"
     cd /mnt/efs/code/nodejs
     sudo -u ubuntu npm install
 
-    echo "[8] Install PM2 globally and make available system-wide"
-    echo "[Installing PM2]"
-    export PATH=$PATH:/usr/local/bin
+    echo "[8] Install PM2 globally"
     sudo npm install -g pm2
-
-    echo "[Verifying PM2 installation]"
-    if [ ! -f /usr/local/bin/pm2 ]; then
-      echo "❌ PM2 binary not found after install. Exiting."
-      exit 1
-    fi
-
-    sudo ln -sf /usr/local/bin/pm2 /usr/bin/pm2
-
-    echo "[PM2 version]"
-    pm2 -v || echo "❌ pm2 still not found in PATH"
-
+    sudo ln -sf $(which pm2) /usr/bin/pm2
 
     echo "[9] Start app with PM2"
-    cd /mnt/efs/code/nodejs
     sudo -u ubuntu pm2 start index.js --name nodejs-app
     sudo -u ubuntu pm2 save
     sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
 
     echo "[10] Health check"
-    curl http://localhost:3000 || echo "App failed to respond"
+    curl http://localhost:3000 || echo "App did not respond on port 3000"
   EOF
 
 
