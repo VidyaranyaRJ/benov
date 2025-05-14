@@ -46,8 +46,21 @@ resource "aws_instance" "ecs_instance" {
     sudo -u ubuntu npm install
 
     echo "[8] Install PM2 globally and make available system-wide"
+    echo "[Installing PM2]"
+    export PATH=$PATH:/usr/local/bin
     sudo npm install -g pm2
-    sudo ln -s /usr/local/bin/pm2 /usr/bin/pm2
+
+    echo "[Verifying PM2 installation]"
+    if [ ! -f /usr/local/bin/pm2 ]; then
+      echo "❌ PM2 binary not found after install. Exiting."
+      exit 1
+    fi
+
+    sudo ln -sf /usr/local/bin/pm2 /usr/bin/pm2
+
+    echo "[PM2 version]"
+    pm2 -v || echo "❌ pm2 still not found in PATH"
+
 
     echo "[9] Start app with PM2"
     cd /mnt/efs/code/nodejs
