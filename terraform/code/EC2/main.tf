@@ -19,7 +19,7 @@ locals {
 
 
 
-module "EC2" {
+module "Instance_1" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
@@ -28,7 +28,7 @@ module "EC2" {
 }
 
 
-module "EC2" {
+module "Instance_2" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
@@ -36,7 +36,7 @@ module "EC2" {
 }
 
 
-module "EC2" {
+module "Instance_3" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
@@ -44,7 +44,7 @@ module "EC2" {
 }
 
 
-module "EC2" {
+module "Instance_4" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
@@ -52,7 +52,7 @@ module "EC2" {
 }
 
 
-module "EC2" {
+module "Instance_5" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
