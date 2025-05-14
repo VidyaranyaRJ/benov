@@ -32,7 +32,7 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
     if [ ! -d "/mnt/efs/code/application" ]; then
-      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application || echo "Git clone failed"
+      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || echo "Git clone failed"
     fi
 
     cd /mnt/efs/code/application
