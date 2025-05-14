@@ -15,31 +15,40 @@ resource "aws_instance" "ecs_instance" {
     exec > /var/log/user-data.log 2>&1
     set -e
 
+    echo "Updating system and installing required packages..."
     apt-get update -y
     apt-get install -y nfs-common git curl
 
+    echo "Installing Node.js 18..."
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
 
+    echo "Creating EFS mount directories..."
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
 
+    echo "Mounting EFS volumes..."
     mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
     mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
     mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
+    echo "Persisting mounts in /etc/fstab..."
     echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    if [ ! -d "/mnt/efs/code/application" ]; then
+    echo "Cloning GitHub repository..."
+    if [ ! -d "/mnt/efs/code/.git" ]; then
       git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || echo "Git clone failed"
     fi
 
-    cd /mnt/efs/code/application
+    echo "Installing application dependencies and starting app..."
+    cd /mnt/efs/code
     npm install
     npm install -g pm2
     pm2 start index.js
+    pm2 save
   EOF
+
 
 
   tags = {
