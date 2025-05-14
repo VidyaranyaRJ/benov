@@ -42,13 +42,20 @@ resource "aws_instance" "ecs_instance" {
     echo "[6] Fix ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "[7] Install dependencies"
+    echo "[7] Install local dependencies (PM2 and project deps)"
     cd /mnt/efs/code/nodejs
+
+    # Install dependencies locally inside the project (node_modules in this folder)
     sudo -u ubuntu npm install
 
-    echo "[8] Install PM2 globally"
-    sudo npm install -g pm2
-    sudo ln -sf $(which pm2) /usr/bin/pm2
+    # Install pm2 locally (within project scope)
+    sudo -u ubuntu npm install pm2 --save
+
+    # Use pm2 via npx or local path
+    echo "[8] Start app with PM2"
+    sudo -u ubuntu ./node_modules/.bin/pm2 start index.js --name nodejs-app
+    sudo -u ubuntu ./node_modules/.bin/pm2 save
+
 
     echo "[9] Start app with PM2"
     cd /mnt/efs/code/nodejs
