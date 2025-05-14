@@ -40,7 +40,8 @@ module "Instance_3" {
   source                                 = "../../modules/EC2"
   subnet                                 = module.network.subnet_id
   sg_id                                  = module.network.security_group_id
-  # ec2_tag_name = local.ec2_tag_name_tag3
+  ec2_tag_name = local.ec2_tag_name_tag3
+  
 }
 
 
