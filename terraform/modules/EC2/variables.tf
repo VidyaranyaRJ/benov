@@ -18,3 +18,19 @@ variable "ec2_tag_name" {
   type = string
   description = "EC2 tag name"
 }
+
+
+variable "efs1_dns_name" {
+  type = string
+  description = "EFS DNS name"
+}
+
+variable "efs2_dns_name" {
+  type = string
+  description = "EFS DNS name"
+}
+
+variable "efs3_dns_name" {
+  type = string
+  description = "EFS DNS name"
+}
