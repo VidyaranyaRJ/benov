@@ -35,7 +35,7 @@ resource "aws_instance" "ecs_instance" {
       git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application
     fi
 
-    cd /mnt/efs/code/your-repo
+    cd /mnt/efs/code/application
     npm install -y
     npm install -g pm2
     pm2 start index.js
