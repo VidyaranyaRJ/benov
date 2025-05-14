@@ -7,4 +7,13 @@ variable "tag_name" {
 }
 
 
+variable "subnet_id_for_efs" {
+  type        = string
+}
+
+
+variable "sg_id_id_for_efs" {
+  type        = string
+}
+
 
