@@ -15,7 +15,7 @@ resource "aws_instance" "ecs_instance" {
     exec > /var/log/user-data.log 2>&1
     set -e
 
-    echo "[1] Install packages"
+    echo "[1] Install base packages"
     apt-get update -y
     apt-get install -y nfs-common git curl
 
@@ -23,7 +23,7 @@ resource "aws_instance" "ecs_instance" {
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
     apt-get install -y nodejs
 
-    echo "[3] Mount EFS"
+    echo "[3] Mount EFS volumes"
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
     mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
     mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
@@ -34,27 +34,29 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "[5] Clean and clone Git repo"
+    echo "[5] Clean and clone repo"
     rm -rf /mnt/efs/code/* /mnt/efs/code/.git
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
+
+    echo "[6] Fix ownership"
     chown -R ubuntu:ubuntu /mnt/efs/code
 
-    echo "[6] Install app dependencies"
+    echo "[7] Install dependencies"
     cd /mnt/efs/code/nodejs
-    npm install
+    sudo -u ubuntu npm install
 
-    echo "[7] Install PM2 globally"
+    echo "[8] Install PM2 globally"
     npm install -g pm2
 
-    echo "[8] Start app with PM2"
+    echo "[9] Start app with PM2"
     pm2 start index.js --name nodejs-app
     pm2 save
     pm2 startup systemd -u ubuntu --hp /home/ubuntu
 
-    echo "[9] Health check"
+    echo "[10] Health check"
     curl http://localhost:3000 || echo "App failed to respond"
-
   EOF
+
 
   tags = {
     Name = var.ec2_tag_name
