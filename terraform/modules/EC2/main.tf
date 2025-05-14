@@ -9,7 +9,7 @@ resource "aws_instance" "ecs_instance" {
   vpc_security_group_ids      = [var.sg_id]
   iam_instance_profile        = data.aws_iam_instance_profile.ecs_profile.name
   associate_public_ip_address = true
-  key_name                    = "vj-test-1"
+  key_name                    = "vj-test"
   user_data = <<-EOF
     #!/bin/bash
     exec > /var/log/user-data.log 2>&1
