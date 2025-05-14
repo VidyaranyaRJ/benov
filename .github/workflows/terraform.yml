@@ -76,12 +76,13 @@ jobs:
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
             --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
-            --comment "Pull latest code and restart Node app" \
+            --comment "Clean and pull latest code, then restart Node app" \
             --parameters 'commands=[
-              "cd /mnt/efs/code || git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
+              "echo Cleaning up old repo if present",
+              "if [ -d /mnt/efs/code ]; then sudo rm -rf /mnt/efs/code/*; fi",
+              "git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
               "chown -R ubuntu:ubuntu /mnt/efs/code",
               "cd /mnt/efs/code/nodejs",
-              "sudo -u ubuntu git pull origin nodejs",
               "sudo -u ubuntu npm install",
               "if ! sudo -u ubuntu command -v pm2 >/dev/null; then sudo -u ubuntu npm install -g pm2; fi",
               "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",

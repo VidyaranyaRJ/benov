@@ -48,10 +48,12 @@ resource "aws_instance" "ecs_instance" {
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "[6/10] Cloning GitHub repository"
-    if [ ! -d "/mnt/efs/code/.git" ]; then
-      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
+    echo "[6/10] Cleaning and cloning GitHub repository"
+    if [ -d "/mnt/efs/code/.git" ]; then
+      echo "Existing Git repo found in EFS, deleting contents..."
+      rm -rf /mnt/efs/code/*
     fi
+    git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
 
     echo "[7/10] Changing ownership to ubuntu"
     chown -R ubuntu:ubuntu /mnt/efs/code
@@ -76,15 +78,14 @@ resource "aws_instance" "ecs_instance" {
 
     echo ""
     echo "========== Installation Summary =========="
-
     echo "- Node.js version: $(node -v)"
     echo "- npm version: $(npm -v)"
     echo "- pm2 version: $(sudo -u ubuntu pm2 -v || echo 'Not installed')"
     echo "- App running status (pm2 list):"
     sudo -u ubuntu pm2 list || echo "PM2 failed to list processes"
-
     echo "=========================================="
   EOF
+
 
   tags = {
     Name = var.ec2_tag_name
