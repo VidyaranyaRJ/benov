@@ -1,0 +1,214 @@
+name: Terraform Deployment
+
+on:
+  push:
+    branches: [ main ] 
+
+env:
+  ENVIRONMENT: qa  # <<<  qa or prod
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./terraform/code/EFS
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Verify AWS Access
+        run: aws sts get-caller-identity
+
+      - name: Terraform Init
+        run: |
+          echo "Using environment: $ENVIRONMENT"
+          terraform init \
+            -backend-config="bucket=vj-test-ecr-79" \
+            -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
+            -backend-config="region=us-east-2" \
+            -backend-config="encrypt=true"
+
+      - name: Terraform Format Check
+        run: terraform fmt -check
+        continue-on-error: true
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: terraform plan -input=false -var="environment=${ENVIRONMENT}" -out=tfplan
+
+#       - name: Terraform Apply
+#         env:
+#           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#         run: terraform apply -auto-approve tfplan
+      
+#       ##production
+#       - name: Pull latest Node.js code via SSM
+#         env:
+#           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           AWS_DEFAULT_REGION: us-east-2
+#         run: |
+#           aws ssm send-command \
+#             --document-name "AWS-RunShellScript" \
+#             --targets "Key=tag:Role,Values=NodeAutoScale" \
+#             --comment "Update Node.js app from GitHub" \
+#             --parameters 'commands=[
+#               "cd /home/ubuntu/myapp && git pull origin main && pm2 restart node-app"
+#             ]' \
+#             --region us-east-2
+      
+      #Destroy resources
+      - name: Terraform Destroy
+        run: |
+          echo "DESTROYING ALL RESOURCES!"
+          export TF_VAR_AWS_ACCESS_KEY_ID="${{ secrets.AWS_ACCESS_KEY_ID }}"
+          export TF_VAR_AWS_SECRET_ACCESS_KEY="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          terraform destroy -auto-approve
+        timeout-minutes: 12
+
+
+
+
+
+
+
+# name: Terraform Deployment
+
+# on:
+#   push:
+#     branches: [ main ]
+
+# env:
+#   ENVIRONMENT: prod  #####Check prod or qa
+
+# jobs:
+#   terraform:
+#     runs-on: ubuntu-latest
+#     defaults:
+#       run:
+#         working-directory: ./terraform/code/
+
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v3
+
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v2
+#         with:
+#           terraform_version: 1.5.0
+
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v2
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: us-east-2
+
+#       - name: Verify AWS Access
+#         run: aws sts get-caller-identity
+
+#       - name: Terraform Init
+#         run: |
+#           terraform init \
+#             -backend-config="bucket=vj-test-ecr-79" \
+#             -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
+#             -backend-config="region=us-east-2" \
+#             -backend-config="encrypt=true"
+
+#       - name: Terraform Format Check
+#         run: terraform fmt -check
+#         continue-on-error: true
+
+#       - name: Terraform Validate
+#         run: terraform validate
+
+#       - name: Terraform Plan
+#         run: terraform plan -input=false -var="environment=${ENVIRONMENT}" -out=tfplan
+
+#       - name: Terraform Destroy
+#         run: terraform destroy -auto-approve 
+
+
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
+      
+      # - name: Pull and Restart Node.js via SSM
+      #   run: |
+      #     echo "Fetching instance ID with tag 'Role=NodeAutoScale'..."
+      #     instance_id=$(aws ec2 describe-instances \
+      #       --filters "Name=tag:Role,Values=NodeAutoScale" \
+      #       --query "Reservations[0].Instances[0].InstanceId" \
+      #       --output text)
+      
+      #     echo "Waiting for EC2 instance $instance_id to be in 'running' state..."
+      #     aws ec2 wait instance-status-ok --instance-ids "$instance_id"
+      
+      #     echo "Waiting for instance to register with SSM..."
+      #     for i in {1..10}; do
+      #       status=$(aws ssm describe-instance-information \
+      #         --query "InstanceInformationList[?InstanceId=='$instance_id'] | [0].PingStatus" \
+      #         --output text)
+      
+      #       if [ "$status" = "Online" ]; then
+      #         echo "SSM is online for $instance_id"
+      #         break
+      #       else
+      #         echo "SSM not online yet... retrying ($i/10)"
+      #         sleep 15
+      #       fi
+      #     done
+      
+      #     if [ "$status" != "Online" ]; then
+      #       echo "SSM agent not available. Failing..."
+      #       exit 1
+      #     fi
+      
+      #     echo "Sending update command to instance $instance_id"
+      #     command_id=$(aws ssm send-command \
+      #       --document-name "AWS-RunShellScript" \
+      #       --targets "Key=tag:Role,Values=NodeAutoScale" \
+      #       --comment "Update Node.js app from GitHub" \
+      #       --parameters 'commands=[
+      #         "cd /home/ubuntu/myapp && git fetch --all && git reset --hard origin/main >> /tmp/git.log 2>&1 && pm2 restart node-app >> /tmp/pm2.log 2>&1"
+      #       ]' \
+      #       --region us-east-2 \
+      #       --query "Command.CommandId" \
+      #       --output text)
+      
+      #     echo "Waiting for command $command_id to complete..."
+      #     aws ssm wait command-executed \
+      #       --command-id "$command_id" \
+      #       --instance-id "$instance_id" \
+      #       --region us-east-2
+      
+      #     echo "Fetching command output..."
+      #     output=$(aws ssm get-command-invocation \
+      #       --command-id "$command_id" \
+      #       --instance-id "$instance_id" \
+      #       --region us-east-2 \
+      #       --query "StandardOutputContent" \
+      #       --output text)
+      
+      #     echo "---- SSM Command Output ----"
+      #     echo "$output"
+      
