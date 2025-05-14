@@ -1,6 +1,6 @@
 terraform {
   backend "s3" {
-    bucket         = "vj-test-benv"  
+    bucket         = "vj-test-benvolate"  
     key            = "terraform.tfstate"  
     region         = "us-east-2" 
     encrypt        = true
@@ -12,7 +12,7 @@ terraform {
 data "terraform_remote_state" "network" {
   backend = "s3"
   config = {
-    bucket = "vj-test-benv"
+    bucket = "vj-test-benvolate"
     key    = "Network/terraform.tfstate"
     region = "us-east-2"
   }
@@ -22,7 +22,7 @@ data "terraform_remote_state" "network" {
 data "terraform_remote_state" "efs" {
   backend = "s3"
   config = {
-    bucket = "vj-test-benv"
+    bucket = "vj-test-benvolate"
     key    = "EFS/terraform.tfstate"
     region = "us-east-2"
   }

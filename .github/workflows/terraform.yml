@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  TF_STATE_BUCKET: vj-test-benv
+  TF_STATE_BUCKET: vj-test-benvolate
   TF_STATE_KEY: "Network/terraform.tfstate"   # Network EFS EC2
   AWS_REGION: us-east-2
 
@@ -54,12 +54,12 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-      # - name: Terraform Apply
-      #   run: terraform apply -auto-approve tfplan
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
 
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve
 
   deploy:
     runs-on: ubuntu-latest
