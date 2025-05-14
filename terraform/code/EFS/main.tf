@@ -8,14 +8,14 @@ terraform {
 }
 
 locals {
-  creation_token_efs1 = "App Data"
-  tag_name_efs1 = "GitHub - code"
+  creation_token_efs1 = "GitHub - code"
+  tag_name_efs1 = "App Data"
 
-  creation_token_efs2 = "ORG Data"
-  tag_name_efs2 = "GitHub - code"
+  creation_token_efs2 = "GitHub - code"
+  tag_name_efs2 = "ORG Data"
 
-  creation_token_efs3 = "User Data"
-  tag_name_efs3 = "GitHub - code"
+  creation_token_efs3 = "GitHub - code"
+  tag_name_efs3 = "User Data"
 }
 
 
