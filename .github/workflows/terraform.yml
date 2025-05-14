@@ -37,7 +37,7 @@ jobs:
         run: |
           terraform init \
             -backend-config="bucket=vj-test-ecr-79" \
-            -backend-config="key=${ENVIRONMENT}/terraform.tfstate" \
+            -backend-config="key=/terraform.tfstate" \
             -backend-config="region=us-east-2" \
             -backend-config="encrypt=true"
 
