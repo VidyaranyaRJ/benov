@@ -9,11 +9,11 @@ terraform {
 
 
 locals {
-  ec2_tag_name_tag1 = Instance_1
-  ec2_tag_name_tag2 = Instance_2
-  ec2_tag_name_tag3 = Instance_3
-  ec2_tag_name_tag4 = Instance_4
-  ec2_tag_name_tag5 = Instance_5
+  ec2_tag_name_tag1 = "Instance_1"
+  ec2_tag_name_tag2 = "Instance_2"
+  ec2_tag_name_tag3 = "Instance_3"
+  ec2_tag_name_tag4 = "Instance_4"
+  ec2_tag_name_tag5 = "Instance_5"
 
 }
 
