@@ -78,30 +78,30 @@ jobs:
             --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
             --comment "Redeploy Node app" \
             --parameters 'commands=[
-              "echo Step 1: Clean old repo if it exists",
-              "if [ -d /mnt/efs/code/.git ]; then rm -rf /mnt/efs/code/* /mnt/efs/code/.git; fi",
+                "echo Step 1: Clean old repo if it exists",
+                "if [ -d /mnt/efs/code/.git ]; then rm -rf /mnt/efs/code/* /mnt/efs/code/.git; fi",
 
-              "echo Step 2: Clone fresh code from GitHub",
-              "git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
+                "echo Step 2: Clone fresh code from GitHub",
+                "git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
 
-              "echo Step 3: Fix EFS permissions",
-              "chown -R ubuntu:ubuntu /mnt/efs/code",
+                "echo Step 3: Fix EFS permissions",
+                "chown -R ubuntu:ubuntu /mnt/efs/code",
 
-              "echo Step 4: Install node modules",
-              "cd /mnt/efs/code/nodejs",
-              "sudo -u ubuntu npm install",
+                "echo Step 4: Install node modules",
+                "cd /mnt/efs/code/nodejs",
+                "sudo -u ubuntu npm install",
 
-              "echo Step 5: Install PM2 globally and make available system-wide",
-              "export PATH=$PATH:/usr/local/bin",
-              "sudo npm install -g pm2",
-              "test -f /usr/local/bin/pm2 || (echo 'PM2 binary not found after install. Exiting.' && exit 1)",
-              "sudo ln -sf /usr/local/bin/pm2 /usr/bin/pm2",
-              "pm2 -v || echo 'pm2 still not found in PATH'",
+                "echo Step 5: Install PM2 globally and make available system-wide",
+                "export PATH=$PATH:/usr/local/bin",
+                "sudo npm install -g pm2",
+                "bash -c 'test -f /usr/local/bin/pm2 || { echo PM2 not found; exit 1; }'",
+                "sudo ln -sf /usr/local/bin/pm2 /usr/bin/pm2",
+                "pm2 -v || echo 'pm2 still not found in PATH'",
 
-              "echo Step 6: Restart or start app",
-              "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
+                "echo Step 6: Restart or start app",
+                "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
 
-              "echo Step 7: Save PM2 startup config",
-              "sudo -u ubuntu pm2 save"
-            ]' \
-            --region us-east-2
+                "echo Step 7: Save PM2 startup config",
+                "sudo -u ubuntu pm2 save"
+              ]' \
+              --region us-east-2
