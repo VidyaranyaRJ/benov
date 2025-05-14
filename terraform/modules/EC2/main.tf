@@ -46,12 +46,13 @@ resource "aws_instance" "ecs_instance" {
     sudo -u ubuntu npm install
 
     echo "[8] Install PM2 globally"
-    npm install -g pm2
+    sudo npm install -g pm2
 
     echo "[9] Start app with PM2"
-    pm2 start index.js --name nodejs-app
-    pm2 save
-    pm2 startup systemd -u ubuntu --hp /home/ubuntu
+    cd /mnt/efs/code/nodejs
+    sudo -u ubuntu pm2 start index.js --name nodejs-app
+    sudo -u ubuntu pm2 save
+    sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
 
     echo "[10] Health check"
     curl http://localhost:3000 || echo "App failed to respond"
