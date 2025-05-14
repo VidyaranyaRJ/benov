@@ -54,46 +54,46 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
 
 
-      # - name: Terraform Destroy
-      #   run: terraform destroy -auto-approve
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: terraform
-    steps:
-      - name: Trigger SSM to update EFS code on EC2
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+  # deploy:
+  #   runs-on: ubuntu-latest
+  #   needs: terraform
+  #   steps:
+  #     - name: Trigger SSM to update EFS code on EC2
+  #       uses: aws-actions/configure-aws-credentials@v2
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-2
 
-      - run: |
-          aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
-            --comment "Redeploy Node app" \
-            --parameters 'commands=[
-              "rm -rf /mnt/efs/code/*",
-              "git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
-              "chown -R ubuntu:ubuntu /mnt/efs/code",
-              "cd /mnt/efs/code/nodejs",
-              "cat > package.json <<EOF",
-              "{",
-              "  \"name\": \"nodejs-app\",",
-              "  \"version\": \"1.0.0\",",
-              "  \"main\": \"index.js\",",
-              "  \"scripts\": { \"start\": \"node index.js\" },",
-              "  \"dependencies\": { \"express\": \"^4.18.2\" }",
-              "}",
-              "EOF",
-              "npm install",
-              "npm install -g pm2",
-              "pm2 restart nodejs-app || pm2 start index.js --name nodejs-app",
-              "pm2 save"
-            ]' \
-            --region us-east-2
+  #     - run: |
+  #         aws ssm send-command \
+  #           --document-name "AWS-RunShellScript" \
+  #           --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
+  #           --comment "Redeploy Node app" \
+  #           --parameters 'commands=[
+  #             "rm -rf /mnt/efs/code/*",
+  #             "git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
+  #             "chown -R ubuntu:ubuntu /mnt/efs/code",
+  #             "cd /mnt/efs/code/nodejs",
+  #             "cat > package.json <<EOF",
+  #             "{",
+  #             "  \"name\": \"nodejs-app\",",
+  #             "  \"version\": \"1.0.0\",",
+  #             "  \"main\": \"index.js\",",
+  #             "  \"scripts\": { \"start\": \"node index.js\" },",
+  #             "  \"dependencies\": { \"express\": \"^4.18.2\" }",
+  #             "}",
+  #             "EOF",
+  #             "npm install",
+  #             "npm install -g pm2",
+  #             "pm2 restart nodejs-app || pm2 start index.js --name nodejs-app",
+  #             "pm2 save"
+  #           ]' \
+  #           --region us-east-2
