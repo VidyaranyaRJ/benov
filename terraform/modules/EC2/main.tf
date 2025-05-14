@@ -68,7 +68,7 @@ resource "aws_instance" "ecs_instance" {
     if ! sudo -u ubuntu command -v pm2 >/dev/null 2>&1; then
       sudo -u ubuntu npm install -g pm2
     fi
-
+    
     echo "[10/10] Starting the app using pm2"
     sudo -u ubuntu bash -c "
       pm2 start /mnt/efs/code/nodejs/index.js --name nodejs-app &&
