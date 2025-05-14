@@ -12,34 +12,42 @@ resource "aws_instance" "ecs_instance" {
   key_name                    = "vj-test"
   user_data = <<-EOF
     #!/bin/bash
+    exec > /var/log/user-data.log 2>&1
+    set -e
+
+    echo "Updating packages and installing dependencies..."
     apt-get update -y
     apt-get install -y nfs-common git nodejs npm
 
-    # Mount paths
+    echo "Creating EFS mount directories..."
     mkdir -p /mnt/efs/code
     mkdir -p /mnt/efs/data
     mkdir -p /mnt/efs/logs
 
-    # Mount each EFS
+    echo "Mounting EFS volumes..."
     mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
     mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
     mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
-    # Persist mounts in fstab
+    echo "Persisting EFS mounts in /etc/fstab..."
     echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    # Git clone only in /mnt/efs/code
+    echo "Cloning GitHub repo if not present..."
     if [ ! -d "/mnt/efs/code/application" ]; then
-      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application
+      git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code/application || echo "Git clone failed"
     fi
 
+    echo "Installing Node.js dependencies..."
     cd /mnt/efs/code/application
-    npm install -y
+    npm install
+
+    echo "Installing and starting pm2..."
     npm install -g pm2
     pm2 start index.js
-    EOF
+  EOF
+
 
   tags = {
     Name = var.ec2_tag_name
