@@ -47,7 +47,7 @@ resource "aws_instance" "ecs_instance" {
     sudo -u ubuntu npm install
 
     echo "[8] Install PM2 globally"
-    sudo -u ubuntu -E npm install -g pm2
+    sudo npm install -g pm2
     sudo ln -sf $(which pm2) /usr/bin/pm2
 
     echo "[9] Start app with PM2"
