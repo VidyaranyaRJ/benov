@@ -91,8 +91,8 @@ jobs:
               "cd /mnt/efs/code/nodejs",
               "sudo -u ubuntu npm install",
 
-              "echo Step 5: Install pm2 globally (if missing)",
-              "if ! command -v pm2 >/dev/null; then sudo npm install -g pm2; fi",
+              "echo Step 5: Install PM2 globally and make available system-wide",
+              "if ! command -v pm2 >/dev/null; then sudo npm install -g pm2 && sudo ln -s /usr/local/bin/pm2 /usr/bin/pm2; fi",
 
               "echo Step 6: Restart or start app",
               "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",

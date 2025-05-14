@@ -45,8 +45,9 @@ resource "aws_instance" "ecs_instance" {
     cd /mnt/efs/code/nodejs
     sudo -u ubuntu npm install
 
-    echo "[8] Install PM2 globally"
+    echo "[8] Install PM2 globally and make available system-wide"
     sudo npm install -g pm2
+    sudo ln -s /usr/local/bin/pm2 /usr/bin/pm2
 
     echo "[9] Start app with PM2"
     cd /mnt/efs/code/nodejs
@@ -57,6 +58,7 @@ resource "aws_instance" "ecs_instance" {
     echo "[10] Health check"
     curl http://localhost:3000 || echo "App failed to respond"
   EOF
+
 
 
   tags = {
