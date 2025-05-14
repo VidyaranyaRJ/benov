@@ -49,7 +49,7 @@ jobs:
         run: terraform validate
 
       - name: Terraform Plan
-        run: terraform plan -input=false -var="environment=${ENVIRONMENT}" -out=tfplan
+        run: terraform plan -input=false  -out=tfplan
 
       - name: Terraform Destroy
         run: terraform destroy -auto-approve 
