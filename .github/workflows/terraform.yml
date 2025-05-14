@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./terraform/code/EC2
+        working-directory: ./terraform/code/Network
 
     steps:
       - name: Checkout Repository
