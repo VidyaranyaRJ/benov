@@ -73,42 +73,21 @@ jobs:
           echo "Resolved from tfstate: $INSTANCE_ID"
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
-      - name: Get Instance ID for SSM
-        id: get_instance
-        run: |
-          # Read the instance ID from the file and strip the newline
-          INSTANCE_ID=$(cat instance_id.txt | tr -d '\n')
-          echo "Using Instance ID: $INSTANCE_ID"
-
-          # Save it to GitHub environment WITHOUT newline
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-
       - name: Wait for SSM to be ready
         run: |
           echo "Waiting for EC2 + SSM Agent to initialize..."
           sleep 60
 
-      - name: Verify environment variable
+      - name: Verify instance ID from environment
         run: |
           echo "Instance ID from environment: $INSTANCE_ID"
           if [ -z "$INSTANCE_ID" ]; then
-            echo "Using hardcoded ID as fallback"
-            INSTANCE_ID="i-01f735f2b02fa758e"
+            echo "Error: INSTANCE_ID is not set. Make sure tfstate.json contains the correct output."
+            exit 1
           fi
-          echo "Final Instance ID: $INSTANCE_ID" 
 
-      - name: Check Node.js, PM2, EFS status
+      - name: Check Node.js, PM2, EFS status on EC2
         run: |
-          # Read ID from file as a backup method
-          if [ -z "$INSTANCE_ID" ]; then
-            INSTANCE_ID=$(cat instance_id.txt)
-            if [ -z "$INSTANCE_ID" ]; then
-              INSTANCE_ID="i-01f735f2b02fa758e"
-            fi
-          fi
-          
-          echo "Running diagnostics on EC2 instance: $INSTANCE_ID"
-          
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
@@ -119,14 +98,6 @@ jobs:
 
       - name: Verify EFS directory contents
         run: |
-          # Read ID from file as a backup method
-          if [ -z "$INSTANCE_ID" ]; then
-            INSTANCE_ID=$(cat instance_id.txt)
-            if [ -z "$INSTANCE_ID" ]; then
-              INSTANCE_ID="i-01f735f2b02fa758e"
-            fi
-          fi
-          
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
