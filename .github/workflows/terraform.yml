@@ -79,12 +79,13 @@ jobs:
         run: |
           INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)
           echo "Running diagnostics on EC2 instance: $INSTANCE_ID"
+
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters commands='["node -v", "pm2 list", "df -h | grep efs"]' \
             --comment "Check Node.js, PM2, and EFS status" \
-            --region us-east-2 \
+            --region ${{ env.AWS_REGION }} \
             --output text
 
 
