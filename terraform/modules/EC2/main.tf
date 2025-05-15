@@ -17,7 +17,7 @@ set -euxo pipefail
 
 echo "[1] Update system and install base packages"
 yum update -y || { echo "System update failed"; exit 1; }
-yum install -y git amazon-efs-utils gcc-c++ make jq curl tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel || {
+yum install -y git amazon-efs-utils gcc-c++ make jq curl tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel --allowerasing || {
   echo "Base package install failed"
   exit 1
 }
