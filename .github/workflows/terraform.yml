@@ -156,10 +156,58 @@ jobs:
                 --output text
               break
             elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
-              echo "❌ Command failed or cancelled"
+              echo "Command failed or cancelled"
               exit 1
             fi
 
             echo "Waiting for 5 seconds..."
+            sleep 5
+          done
+
+      - name: Start Node.js app using PM2 and verify
+        # env:
+        #   INSTANCE_ID: ${{ env.INSTANCE_ID }}
+        run: |
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "cd /mnt/efs/code/nodejs-app",
+              "npm install",
+              "npm list -g pm2 || npm install -g pm2",
+              "pm2 start index.js --name myapp || echo PM2_START_FAILED=true",
+              "pm2 save",
+              "pm2 list",
+              "pm2 logs --lines 30 || echo PM2_LOGS_FAILED=true",
+              "cat /mnt/efs/logs/init.log || echo NO_INIT_LOG=true"
+            ]' \
+            --comment "Start Node.js app with PM2 and log analysis" \
+            --region ${{ env.AWS_REGION }} \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "Sent PM2 start command: $CMD_ID"
+
+          for i in {1..12}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ${{ env.AWS_REGION }} \
+              --query "Status" \
+              --output text)
+            
+            echo "Command status: $STATUS"
+
+            if [[ "$STATUS" == "Success" ]]; then
+              aws ssm get-command-invocation \
+                --command-id "$CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --output text
+              break
+            elif [[ "$STATUS" == "Failed" ]]; then
+              echo "PM2 app launch or log analysis failed"
+              exit 1
+            fi
             sleep 5
           done
