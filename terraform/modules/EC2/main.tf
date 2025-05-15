@@ -17,7 +17,7 @@ resource "aws_instance" "ecs_instance" {
 
   echo "[1] Update system and install base packages"
   yum update -y
-  yum install -y git amazon-efs-utils gcc-c++ make curl || echo "Base package install failed"
+  yum install -y git amazon-efs-utils gcc-c++ make  || echo "Base package install failed"
 
   echo "[2] Download and install Node.js 18"
   cd /usr/local
