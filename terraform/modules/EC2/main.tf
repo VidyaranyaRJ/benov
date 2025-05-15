@@ -17,16 +17,16 @@ resource "aws_instance" "ecs_instance" {
 
   echo "[1] Update system and install base packages"
   yum update -y
-  yum install -y git amazon-efs-utils gcc-c++ make  || echo "Base package install failed"
+  yum install -y git amazon-efs-utils gcc-c++ make || echo "Base package install failed"
 
   echo "[2] Download and install Node.js 18"
   cd /usr/local
   curl -O https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz || echo "Failed to download Node.js"
   tar -xf node-v18.20.2-linux-x64.tar.xz
-  cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/ || echo "Failed to copy Node.js binaries"
+  cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/local/ || echo "Failed to copy Node.js binaries"
   rm -rf node-v18.20.2-linux-x64*
-  ln -sf /usr/bin/node /usr/local/bin/node
-  ln -sf /usr/bin/npm /usr/local/bin/npm
+  ln -sf /usr/local/bin/node /usr/bin/node
+  ln -sf /usr/local/bin/npm /usr/bin/npm
 
   echo "[3] Verify Node.js and npm installation"
   node -v || echo "Node.js not found"
@@ -34,14 +34,14 @@ resource "aws_instance" "ecs_instance" {
 
   echo "[4] Create and mount EFS directories"
   mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code || echo "EFS code mount failed"
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data || echo "EFS data mount failed"
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs || echo "EFS logs mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code || echo "EFS code mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data || echo "EFS data mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs || echo "EFS logs mount failed"
 
   echo "[5] Persist EFS mounts in /etc/fstab"
-  echo ${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo ${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo ${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
   echo "[6] Clone application repo into /mnt/efs/code"
   rm -rf /mnt/efs/code/*
@@ -56,6 +56,7 @@ resource "aws_instance" "ecs_instance" {
   sleep 5
   curl http://localhost:3000 || echo "App failed to respond"
 EOF
+
 
 
 
