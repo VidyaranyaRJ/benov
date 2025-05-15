@@ -63,29 +63,24 @@ jobs:
 
 
 
-      - name: Get Instance ID
-        id: instance_id
+      - name: Save EC2 instance ID to environment
+        shell: bash
         run: |
-          # Store the output in a variable properly
-          INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)
-          echo "INSTANCE_ID=$INSTANCE_ID"
-          # Use GitHub Actions environment file approach instead of deprecated set-output
-          echo "INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm | tr -d '\n')" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)" >> $GITHUB_ENV
 
-      - name: Wait for SSM to be ready
+      - name: Confirm INSTANCE_ID
+        shell: bash
         run: |
-          echo "Waiting for EC2 + SSM Agent to initialize..."
-          sleep 60
+          echo "EC2 Instance ID from ENV: $INSTANCE_ID"
 
       - name: Check Node.js, PM2, EFS status
+        shell: bash
         run: |
-          echo "Running diagnostics on EC2 instance: ${{ env.INSTANCE_ID }}"
-          
           aws ssm send-command \
-            --instance-ids "${{ env.INSTANCE_ID }}" \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
-            --comment "Check Node.js, PM2, and EFS status" \
+            --parameters commands='["node -v", "pm2 list", "df -h | grep efs"]' \
+            --comment "Verify Node.js and EFS setup" \
             --region ${{ env.AWS_REGION }} \
             --output text
 
