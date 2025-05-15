@@ -82,16 +82,13 @@ jobs:
             --parameters '{
               "commands": [
                 "cd /mnt/efs/code || git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
-                "chown -R ubuntu:ubuntu /mnt/efs/code",
+                "chown -R ec2-user:ec2-user /mnt/efs/code",
                 "cd /mnt/efs/code/nodejs",
-                "sudo -u ubuntu git pull origin nodejs",
-                "sudo -u ubuntu npm install",
-                "if ! sudo -u ubuntu command -v pm2 >/dev/null; then sudo -u ubuntu npm install -g pm2; fi",
-                "sudo ln -sf $(which pm2) /usr/bin/pm2",
-                "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
-                "sudo -u ubuntu pm2 save"
+                "sudo -u ec2-user git pull origin nodejs",
+                "sudo -u ec2-user npm install",
+                "if ! sudo -u ec2-user command -v pm2 >/dev/null; then sudo -u ec2-user npm install -g pm2; fi",
+                "sudo -u ec2-user pm2 restart nodejs-app || sudo -u ec2-user pm2 start index.js --name nodejs-app",
+                "sudo -u ec2-user pm2 save"
               ]
             }' \
             --region us-east-2
-
-  
