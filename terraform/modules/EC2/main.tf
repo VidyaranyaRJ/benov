@@ -10,7 +10,7 @@ resource "aws_instance" "ecs_instance" {
   iam_instance_profile        = data.aws_iam_instance_profile.ecs_profile.name
   associate_public_ip_address = true
   key_name                    = "vj-test"
-  user_data = <<-EOF
+user_data = <<-EOF
   #!/bin/bash
   exec > /var/log/user-data.log 2>&1
   set -euxo pipefail
@@ -34,14 +34,14 @@ resource "aws_instance" "ecs_instance" {
 
   echo "[4] Create and mount EFS directories"
   mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-  mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code || echo "EFS code mount failed"
-  mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data || echo "EFS data mount failed"
-  mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs || echo "EFS logs mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code || echo "EFS code mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data || echo "EFS data mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs || echo "EFS logs mount failed"
 
   echo "[5] Persist EFS mounts in /etc/fstab"
-  echo "${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
   echo "[6] Clone application repo into /mnt/efs/code"
   rm -rf /mnt/efs/code/*
@@ -59,9 +59,11 @@ EOF
 
 
 
-
   tags = {
     Name = var.ec2_tag_name
   }
 }
 
+
+
+ 
