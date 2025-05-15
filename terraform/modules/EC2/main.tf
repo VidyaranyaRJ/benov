@@ -17,10 +17,11 @@ set -euxo pipefail
 
 echo "[1] Update system and install base packages"
 yum update -y || { echo "System update failed"; exit 1; }
-yum install -y git amazon-efs-utils gcc-c++ make jq curl tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel --allowerasing || {
+yum install -y git amazon-efs-utils gcc-c++ make jq curl tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel --allowerasing --skip-broken || {
   echo "Base package install failed"
   exit 1
 }
+
 
 echo "[2] Download and install Node.js 18"
 cd /usr/local
