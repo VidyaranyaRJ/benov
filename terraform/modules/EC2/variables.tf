@@ -39,3 +39,8 @@ variable "efs3_dns_name" {
 variable "ami" {
   type = string
 }
+
+
+variable "git_repo_url" {
+  type = string
+}

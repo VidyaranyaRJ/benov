@@ -48,6 +48,7 @@ locals {
 module "Instance_1" {
   source                                 = "../../modules/EC2"
   ami = local.ami
+  git_repo_url = "https://github.com/VidyaranyaRJ/application.git"
   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
   ec2_tag_name = local.ec2_tag_name_tag1

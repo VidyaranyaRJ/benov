@@ -55,9 +55,44 @@ jobs:
         run: terraform plan -input=false -out=tfplan
 
 
-      # - name: Terraform Destroy
-      #   run: terraform destroy -auto-approve
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
+
+
+
+      # - name: Get Instance ID
+      #   id: instance_id
+      #   run: |
+      #     INSTANCE_ID=$(terraform output -raw instance_id_for_ssm)
+      #     echo "INSTANCE_ID=$INSTANCE_ID"
+      #     echo "::set-output name=id::$INSTANCE_ID"
+
+      # - name: Wait for SSM to be ready
+      #   run: |
+      #     echo "Waiting for EC2 + SSM Agent to initialize..."
+      #     sleep 60
+
+      # - name: Check Node.js, PM2, EFS status
+      #   run: |
+      #     aws ssm send-command \
+      #       --instance-ids ${{ steps.instance_id.outputs.id }} \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
+      #       --comment "Check Node.js, PM2, and EFS status" \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --output text
+
+      # - name: Verify EFS directory contents
+      #   run: |
+      #     aws ssm send-command \
+      #       --instance-ids ${{ steps.instance_id.outputs.id }} \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
+      #       --comment "Check app deployment and env file" \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --output text
+
 
