@@ -86,104 +86,153 @@ jobs:
             exit 1
           fi
 
-      - name: Check Node.js, PM2, EFS status and wait for result
-        run: |
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
-            --comment "Check Node.js, PM2, and EFS status" \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" \
-            --output text)
 
-          echo "SSM command sent: $CMD_ID"
+#################
+
+      # - name: Check Node.js, PM2, EFS status and wait for result
+      #   run: |
+      #     CMD_ID=$(aws ssm send-command \
+      #       --instance-ids "$INSTANCE_ID" \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
+      #       --comment "Check Node.js, PM2, and EFS status" \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --query "Command.CommandId" \
+      #       --output text)
+
+      #     echo "SSM command sent: $CMD_ID"
           
-          for i in {1..20}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region ${{ env.AWS_REGION }} \
-              --query "Status" \
-              --output text)
+      #     for i in {1..20}; do
+      #       STATUS=$(aws ssm get-command-invocation \
+      #         --command-id "$CMD_ID" \
+      #         --instance-id "$INSTANCE_ID" \
+      #         --region ${{ env.AWS_REGION }} \
+      #         --query "Status" \
+      #         --output text)
               
-            echo "Command status: $STATUS"
+      #       echo "Command status: $STATUS"
 
-            if [[ "$STATUS" == "Success" ]]; then
-              aws ssm get-command-invocation \
-                --command-id "$CMD_ID" \
-                --instance-id "$INSTANCE_ID" \
-                --region ${{ env.AWS_REGION }} \
-                --output text
-              break
-            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
-              echo "❌ Command failed or cancelled"
-              exit 1
-            fi
+      #       if [[ "$STATUS" == "Success" ]]; then
+      #         aws ssm get-command-invocation \
+      #           --command-id "$CMD_ID" \
+      #           --instance-id "$INSTANCE_ID" \
+      #           --region ${{ env.AWS_REGION }} \
+      #           --output text
+      #         break
+      #       elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
+      #         echo "❌ Command failed or cancelled"
+      #         exit 1
+      #       fi
             
-            echo "Waiting for 5 seconds..."
-            sleep 5
-          done
+      #       echo "Waiting for 5 seconds..."
+      #       sleep 5
+      #     done
 
-      - name: Verify EFS directory contents and wait for result
-        run: |
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
-            --comment "Check app deployment and env file" \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" \
-            --output text)
+      # - name: Verify EFS directory contents and wait for result
+      #   run: |
+      #     CMD_ID=$(aws ssm send-command \
+      #       --instance-ids "$INSTANCE_ID" \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
+      #       --comment "Check app deployment and env file" \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --query "Command.CommandId" \
+      #       --output text)
 
-          echo "SSM command sent: $CMD_ID"
+      #     echo "SSM command sent: $CMD_ID"
 
-          for i in {1..20}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
-              --region ${{ env.AWS_REGION }} \
-              --query "Status" \
-              --output text)
+      #     for i in {1..20}; do
+      #       STATUS=$(aws ssm get-command-invocation \
+      #         --command-id "$CMD_ID" \
+      #         --instance-id "$INSTANCE_ID" \
+      #         --region ${{ env.AWS_REGION }} \
+      #         --query "Status" \
+      #         --output text)
 
-            echo "Command status: $STATUS"
+      #       echo "Command status: $STATUS"
 
-            if [[ "$STATUS" == "Success" ]]; then
-              aws ssm get-command-invocation \
-                --command-id "$CMD_ID" \
-                --instance-id "$INSTANCE_ID" \
-                --region ${{ env.AWS_REGION }} \
-                --output text
-              break
-            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
-              echo "Command failed or cancelled"
-              exit 1
-            fi
+      #       if [[ "$STATUS" == "Success" ]]; then
+      #         aws ssm get-command-invocation \
+      #           --command-id "$CMD_ID" \
+      #           --instance-id "$INSTANCE_ID" \
+      #           --region ${{ env.AWS_REGION }} \
+      #           --output text
+      #         break
+      #       elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
+      #         echo "Command failed or cancelled"
+      #         exit 1
+      #       fi
 
-            echo "Waiting for 5 seconds..."
-            sleep 5
-          done
+      #       echo "Waiting for 5 seconds..."
+      #       sleep 5
+      #     done
 
-      - name: Start Node.js app using node and verify
+      # - name: Start Node.js app using node and verify
+      #   run: |
+      #     CMD_ID=$(aws ssm send-command \
+      #       --instance-ids "$INSTANCE_ID" \
+      #       --document-name "AWS-RunShellScript" \
+      #       --parameters 'commands=[
+      #         "cd /mnt/efs/code/nodejs-app",
+      #         "npm install || echo NPM_INSTALL_FAILED=true",
+      #         "nohup node index.js > /mnt/efs/logs/app.log 2>&1 & echo $! > app.pid || echo NODE_START_FAILED=true",
+      #         "sleep 5",
+      #         "ps aux | grep node || echo NODE_PROCESS_NOT_FOUND",
+      #         "tail -n 30 /mnt/efs/logs/app.log || echo APP_LOGS_NOT_FOUND",
+      #         "cat /mnt/efs/logs/init.log || echo INIT_LOG_NOT_FOUND"
+      #       ]' \
+      #       --comment "Start Node.js app without PM2 and analyze logs" \
+      #       --region ${{ env.AWS_REGION }} \
+      #       --query "Command.CommandId" \
+      #       --output text)
+
+      #     echo "Sent node start command: $CMD_ID"
+
+      #     for i in {1..12}; do
+      #       STATUS=$(aws ssm get-command-invocation \
+      #         --command-id "$CMD_ID" \
+      #         --instance-id "$INSTANCE_ID" \
+      #         --region ${{ env.AWS_REGION }} \
+      #         --query "Status" \
+      #         --output text)
+            
+      #       echo "Command status: $STATUS"
+
+      #       if [[ "$STATUS" == "Success" ]]; then
+      #         aws ssm get-command-invocation \
+      #           --command-id "$CMD_ID" \
+      #           --instance-id "$INSTANCE_ID" \
+      #           --region ${{ env.AWS_REGION }} \
+      #           --output text
+      #         break
+      #       elif [[ "$STATUS" == "Failed" ]]; then
+      #         echo "❌ Node app launch or logging failed"
+      #         exit 1
+      #       fi
+      #       sleep 5
+      #     done
+
+
+############################
+
+      - name: Pull latest repo and restart app (on re-deploy)
         run: |
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=[
               "cd /mnt/efs/code/nodejs-app",
-              "npm install || echo NPM_INSTALL_FAILED=true",
-              "nohup node index.js > /mnt/efs/logs/app.log 2>&1 & echo $! > app.pid || echo NODE_START_FAILED=true",
-              "sleep 5",
-              "ps aux | grep node || echo NODE_PROCESS_NOT_FOUND",
-              "tail -n 30 /mnt/efs/logs/app.log || echo APP_LOGS_NOT_FOUND",
-              "cat /mnt/efs/logs/init.log || echo INIT_LOG_NOT_FOUND"
+              "git pull origin main || echo GIT_PULL_FAILED",
+              "npm install || echo NPM_INSTALL_FAILED",
+              "pkill -f index.js || echo NO_PROCESS_FOUND",
+              "nohup node index.js > /mnt/efs/logs/app.log 2>&1 & echo $! > app.pid || echo NODE_START_FAILED"
             ]' \
-            --comment "Start Node.js app without PM2 and analyze logs" \
+            --comment "Pull updated code and restart Node.js app" \
             --region ${{ env.AWS_REGION }} \
             --query "Command.CommandId" \
             --output text)
 
-          echo "Sent node start command: $CMD_ID"
+          echo "Sent git pull + restart command: $CMD_ID"
 
           for i in {1..12}; do
             STATUS=$(aws ssm get-command-invocation \
@@ -203,7 +252,7 @@ jobs:
                 --output text
               break
             elif [[ "$STATUS" == "Failed" ]]; then
-              echo "❌ Node app launch or logging failed"
+              echo "Git pull + app restart failed"
               exit 1
             fi
             sleep 5
