@@ -10,7 +10,7 @@ resource "aws_instance" "ecs_instance" {
   iam_instance_profile        = data.aws_iam_instance_profile.ecs_profile.name
   associate_public_ip_address = true
   key_name                    = "vj-test"
-  user_data = templatefile("C:/Users/vrjav/Downloads/Desktop folders/Benevolate/terraform/modules/EC2/user-data.sh", {
+  user_data = templatefile("${path.module}/user-data.sh", {
       efs1_dns_name  = var.efs1_dns_name
       efs2_dns_name  = var.efs2_dns_name
       efs3_dns_name  = var.efs3_dns_name
