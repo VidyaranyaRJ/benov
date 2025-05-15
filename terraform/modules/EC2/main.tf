@@ -15,48 +15,50 @@ resource "aws_instance" "ecs_instance" {
     exec > /var/log/user-data.log 2>&1
     set -euxo pipefail
 
-    echo "[1] Update and install dependencies"
+    echo "[1] Update system and install EFS utils"
     yum update -y
-    yum install -y curl git amazon-efs-utils
+    yum install -y git amazon-efs-utils gcc-c++ make
 
-    echo "[2] Install Node.js 18"
-    curl -fsSL https://rpm.nodesource.com/setup_18.x | bash -
-    yum install -y nodejs
+    echo "[2] Install Node.js 18 from tarball"
+    curl -O https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz
+    tar -xf node-v18.20.2-linux-x64.tar.xz
+    cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/
 
-    echo "[3] Install PM2 globally"
+    echo "[3] Confirm node and npm"
+    node -v
+    npm -v
+
+    echo "[4] Install PM2 globally"
     npm install -g pm2
+    ln -s $(npm bin -g)/pm2 /usr/local/bin/pm2
 
-    echo "[4] Mount EFS volumes"
+    echo "[5] Mount EFS volumes"
     mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
     mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
     mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
     mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
-    echo "[5] Persist mounts"
+    echo "[6] Persist mounts"
     echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
     echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-    echo "[6] Clone repo and set permissions"
+    echo "[7] Clone Node.js app and install deps"
     rm -rf /mnt/efs/code/*
     git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code
     chown -R ec2-user:ec2-user /mnt/efs/code
-
-    echo "[7] Install app dependencies"
     cd /mnt/efs/code/nodejs
     sudo -u ec2-user npm install
 
-    echo "[8] Start Node app with PM2"
+    echo "[8] Start Node.js app with PM2"
     sudo -i -u ec2-user pm2 start index.js --name nodejs-app
     sudo -i -u ec2-user pm2 save
     sudo -i -u ec2-user pm2 startup systemd -u ec2-user --hp /home/ec2-user
 
-    echo "[9] Health check"
+    echo "[9] App health check"
     sleep 5
     curl http://localhost:3000 || echo "App failed to respond"
   EOF
-
-
 
   tags = {
     Name = var.ec2_tag_name
