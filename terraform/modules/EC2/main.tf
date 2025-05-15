@@ -23,13 +23,14 @@ echo "[2] Install Node.js 18"
 curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
 apt-get install -y nodejs
 
-echo "[3] Force npm global prefix to /usr/local"
-npm config set prefix '/usr/local'
+echo "[3] Set npm global prefix to /usr/local"
+npm config set prefix /usr/local
+sudo npm config set prefix /usr/local
 
 echo "[4] Install PM2 globally"
-npm install -g pm2
+sudo npm install -g pm2
 
-echo "[5] Ensure PM2 binary is symlinked properly"
+echo "[5] Symlink PM2 correctly"
 ln -sf /usr/local/lib/node_modules/pm2/bin/pm2 /usr/local/bin/pm2
 
 echo "[6] Mount EFS volumes"
