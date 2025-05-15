@@ -56,26 +56,33 @@ git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/applic
 echo "[7] Fix ownership for ec2-user"
 chown -R ec2-user:ec2-user /mnt/efs/code /mnt/efs/data /mnt/efs/logs
 
-echo "[8] Install Node.js dependencies"
+echo "[8] Ensure express, cors, body-parser dependencies and install"
 cd /mnt/efs/code/nodejs
 
-# Inject express, cors, and body-parser if not present
-if ! grep -q '"express"' package.json; then
-  jq '.dependencies.express = "^4.18.2"' package.json > tmp.json && mv tmp.json package.json
+# If no package.json, create a basic one
+if [ ! -f package.json ]; then
+  echo '{"name":"app","version":"1.0.0","main":"index.js","dependencies":{}}' > package.json
 fi
 
-if ! grep -q '"cors"' package.json; then
-  jq '.dependencies.cors = "^2.8.5"' package.json > tmp.json && mv tmp.json package.json
+# Ensure dependencies block exists
+if ! grep -q '"dependencies"' package.json; then
+  tmp=$(mktemp)
+  jq '. + {"dependencies":{}}' package.json > "$tmp" && mv "$tmp" package.json
 fi
 
-if ! grep -q '"body-parser"' package.json; then
-  jq '.dependencies["body-parser"] = "^1.20.2"' package.json > tmp.json && mv tmp.json package.json
-fi
+# Inject required dependencies using jq
+for pkg in express cors body-parser; do
+  if ! grep -q "\"$pkg\"" package.json; then
+    tmp=$(mktemp)
+    jq ".dependencies[\"$pkg\"] = \"latest\"" package.json > "$tmp" && mv "$tmp" package.json
+  fi
+done
 
 sudo -u ec2-user npm install > /mnt/efs/logs/npm-install.log 2>&1 || {
   echo "npm install failed. Check /mnt/efs/logs/npm-install.log"
   exit 1
 }
+
 
 echo "[9] Run the Node.js app in background"
 sudo -u ec2-user nohup node index.js > /mnt/efs/logs/app.log 2>&1 &
