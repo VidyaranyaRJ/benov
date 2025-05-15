@@ -34,3 +34,8 @@ variable "efs3_dns_name" {
   type = string
   description = "EFS DNS name"
 }
+
+
+variable "ami" {
+  type = string
+}
