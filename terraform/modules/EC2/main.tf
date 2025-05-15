@@ -43,10 +43,16 @@ user_data = <<-EOF
   echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
   echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-  echo "[6] Clone application repo into /mnt/efs/code"
-  rm -rf /mnt/efs/code/*
-  git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || echo "Git clone failed"
-  chown -R ec2-user:ec2-user /mnt/efs/code
+  echo "[6] Clean and clone application repo into /mnt/efs/code"
+  rm -rf /mnt/efs/code/* /mnt/efs/code/.* 2>/dev/null || true
+
+  if git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code; then
+    echo "Repo cloned successfully"
+  else
+    echo "Git clone failed"
+    exit 1
+  fi
+
 
   echo "[7] Install Node.js dependencies"
   cd /mnt/efs/code/nodejs
