@@ -63,10 +63,14 @@ jobs:
 
 
 
-      - name: Extract instance ID safely using jq
-        shell: bash
+      - name: Download remote tfstate from S3
         run: |
-          INSTANCE_ID=$(terraform output -json | jq -r '.module_instance_id_for_ssm.value')
+          aws s3 cp s3://vj-test-benvolate/EC2/terraform.tfstate tfstate.json
+
+      - name: Read instance ID from tfstate.json
+        run: |
+          INSTANCE_ID=$(jq -r '.outputs.module_instance_id_for_ssm.value' tfstate.json)
+          echo "Resolved from tfstate: $INSTANCE_ID"
           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
 
       - name: Get Instance ID for SSM
