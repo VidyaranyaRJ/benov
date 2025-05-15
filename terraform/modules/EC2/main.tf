@@ -34,14 +34,14 @@ resource "aws_instance" "ecs_instance" {
 
   echo "[4] Create and mount EFS directories"
   mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-  mount -t nfs4 -o nfsvers=4.1 "fs-0404721d2b7dfd02f.efs.us-east-2.amazonaws.com:/" /mnt/efs/code || echo "EFS code mount failed"
-  mount -t nfs4 -o nfsvers=4.1 "fs-0e2948fe805e62930.efs.us-east-2.amazonaws.com:/" /mnt/efs/data || echo "EFS data mount failed"
-  mount -t nfs4 -o nfsvers=4.1 "fs-0de94b91a36f18463.efs.us-east-2.amazonaws.com:/" /mnt/efs/logs || echo "EFS logs mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code || echo "EFS code mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data || echo "EFS data mount failed"
+  mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs || echo "EFS logs mount failed"
 
   echo "[5] Persist EFS mounts in /etc/fstab"
-  echo "fs-0404721d2b7dfd02f.efs.us-east-2.amazonaws.com:/" /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "fs-0e2948fe805e62930.efs.us-east-2.amazonaws.com:/" /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "fs-0de94b91a36f18463.efs.us-east-2.amazonaws.com":/" /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo ${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo ${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+  echo ${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
   echo "[6] Clone application repo into /mnt/efs/code"
   rm -rf /mnt/efs/code/*
