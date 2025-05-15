@@ -70,7 +70,7 @@ jobs:
           INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)
           echo "INSTANCE_ID=$INSTANCE_ID"
           # Use GitHub Actions environment file approach instead of deprecated set-output
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm | tr -d '\n')" >> $GITHUB_ENV
 
       - name: Wait for SSM to be ready
         run: |
