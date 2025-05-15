@@ -52,7 +52,10 @@ user_data = <<-EOF
   cd /mnt/efs/code/nodejs
   sudo -u ec2-user npm install || echo "npm install failed"
 
-  echo "[8] Health check"
+  echo "[8] Start Node.js app"
+  nohup node index.js > /mnt/efs/logs/app.log 2>&1 &
+
+  echo "[9] Health check"
   sleep 5
   curl http://localhost:3000 || echo "App failed to respond"
 EOF
