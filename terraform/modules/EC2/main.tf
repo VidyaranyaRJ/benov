@@ -27,7 +27,9 @@ resource "aws_instance" "ecs_instance" {
   npm install -g pm2
 
   echo "[4] Link PM2 to /usr/bin (fixes PATH issue)"
-  ln -sf /usr/lib/node_modules/pm2/bin/pm2 /usr/bin/pm2
+  if [ -f "/usr/lib/node_modules/pm2/bin/pm2" ]; then
+    ln -sf /usr/lib/node_modules/pm2/bin/pm2 /usr/local/bin/pm2
+  fi
 
   echo "[5] Mount EFS volumes"
   mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
