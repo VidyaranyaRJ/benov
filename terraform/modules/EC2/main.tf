@@ -17,11 +17,10 @@ set -euxo pipefail
 
 echo "[1] Update system and install base packages"
 yum update -y || { echo "System update failed"; exit 1; }
-yum install -y git amazon-efs-utils gcc-c++ make jq curl tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel --allowerasing --skip-broken || {
+yum install -y git amazon-efs-utils gcc-c++ make jq tar gzip openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel --allowerasing --skip-broken || {
   echo "Base package install failed"
   exit 1
 }
-
 
 echo "[2] Download and install Node.js 18"
 cd /usr/local
@@ -60,18 +59,15 @@ chown -R ec2-user:ec2-user /mnt/efs/code /mnt/efs/data /mnt/efs/logs
 echo "[8] Ensure express, cors, body-parser dependencies and install"
 cd /mnt/efs/code/nodejs
 
-# If no package.json, create a basic one
 if [ ! -f package.json ]; then
   echo '{"name":"app","version":"1.0.0","main":"index.js","dependencies":{}}' > package.json
 fi
 
-# Ensure dependencies block exists
 if ! grep -q '"dependencies"' package.json; then
   tmp=$(mktemp)
   jq '. + {"dependencies":{}}' package.json > "$tmp" && mv "$tmp" package.json
 fi
 
-# Inject required dependencies using jq
 for pkg in express cors body-parser; do
   if ! grep -q "\"$pkg\"" package.json; then
     tmp=$(mktemp)
@@ -83,7 +79,6 @@ sudo -u ec2-user npm install > /mnt/efs/logs/npm-install.log 2>&1 || {
   echo "npm install failed. Check /mnt/efs/logs/npm-install.log"
   exit 1
 }
-
 
 echo "[9] Run the Node.js app in background"
 sudo -u ec2-user nohup node index.js > /mnt/efs/logs/app.log 2>&1 &
@@ -103,6 +98,7 @@ fi
 
 echo "Setup complete. Node.js app is running and healthy."
 EOF
+
 
 
   tags = {
