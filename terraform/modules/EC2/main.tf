@@ -15,46 +15,16 @@ resource "aws_instance" "ecs_instance" {
   exec > /var/log/user-data.log 2>&1
   set -euxo pipefail
 
-  echo "[1] Update system and install base packages"
-  yum update -y
-  yum install -y git amazon-efs-utils gcc-c++ make  || echo "Base package install failed"
+  echo "[1] Install essential packages (no curl)"
+  yum install -y git amazon-efs-utils gcc-c++ make || echo "yum failed"
 
-  echo "[2] Download and install Node.js 18"
-  cd /usr/local
-  curl -O https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz || echo "Failed to download Node.js"
-  tar -xf node-v18.20.2-linux-x64.tar.xz
-  cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/ || echo "Failed to copy Node.js binaries"
-  rm -rf node-v18.20.2-linux-x64*
-  ln -sf /usr/bin/node /usr/local/bin/node
-  ln -sf /usr/bin/npm /usr/local/bin/npm
-
-  echo "[3] Verify Node.js and npm installation"
-  node -v || echo "Node.js not found"
-  npm -v || echo "npm not found"
-
-  echo "[4] Create and mount EFS directories"
+  echo "[2] Create EFS mount points"
   mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-  mount -t nfs4 -o nfsvers=4.1 "fs-0404721d2b7dfd02f.efs.us-east-2.amazonaws.com:/" /mnt/efs/code || echo "EFS code mount failed"
-  mount -t nfs4 -o nfsvers=4.1 "fs-0e2948fe805e62930.efs.us-east-2.amazonaws.com:/" /mnt/efs/data || echo "EFS data mount failed"
-  mount -t nfs4 -o nfsvers=4.1 "fs-0de94b91a36f18463.efs.us-east-2.amazonaws.com:/" /mnt/efs/logs || echo "EFS logs mount failed"
 
-  echo "[5] Persist EFS mounts in /etc/fstab"
-  echo "fs-0404721d2b7dfd02f.efs.us-east-2.amazonaws.com:/" /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "fs-0e2948fe805e62930.efs.us-east-2.amazonaws.com:/" /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "fs-0de94b91a36f18463.efs.us-east-2.amazonaws.com":/" /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
-
-  echo "[6] Clone application repo into /mnt/efs/code"
-  rm -rf /mnt/efs/code/*
-  git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || echo "Git clone failed"
-  chown -R ec2-user:ec2-user /mnt/efs/code
-
-  echo "[7] Install Node.js dependencies"
-  cd /mnt/efs/code/nodejs
-  sudo -u ec2-user npm install || echo "npm install failed"
-
-  echo "[8] Health check"
-  sleep 5
-  curl http://localhost:3000 || echo "App failed to respond"
+  echo "[3] Mount EFS volumes"
+  mount -t nfs4 -o nfsvers=4.1 fs-0404721d2b7dfd02f.efs.us-east-2.amazonaws.com:/ /mnt/efs/code || echo "EFS code mount failed"
+  mount -t nfs4 -o nfsvers=4.1 fs-0e2948fe805e62930.efs.us-east-2.amazonaws.com:/ /mnt/efs/data || echo "EFS data mount failed"
+  mount -t nfs4 -o nfsvers=4.1 fs-0de94b91a36f18463.efs.us-east-2.amazonaws.com:/ /mnt/efs/logs || echo "EFS logs mount failed"
 EOF
 
 
