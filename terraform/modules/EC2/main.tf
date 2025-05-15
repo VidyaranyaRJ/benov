@@ -11,102 +11,53 @@ resource "aws_instance" "ecs_instance" {
   associate_public_ip_address = true
   key_name                    = "vj-test"
   user_data = <<-EOF
-  #!/bin/bash
-  exec > /var/log/user-data.log 2>&1
-  set -euxo pipefail
+    #!/bin/bash
+    exec > /var/log/user-data.log 2>&1
+    set -euxo pipefail
 
-  echo "[1] Update system and install base packages"
-  yum update -y || { echo "System update failed"; exit 1; }
-  yum install -y git amazon-efs-utils gcc-c++ make jq tar gzip \
-      openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel \
-      --skip-broken || {
-    echo "Base package install failed"
-    exit 1
-  }
+    # Update system and install base packages
+    yum update -y
+    yum install -y amazon-efs-utils unzip awscli \
+        gcc-c++ make jq tar gzip \
+        openssl-devel zlib-devel bzip2 bzip2-devel xz-devel libffi-devel
 
-  echo "[2] Download and install Node.js 18"
-  cd /usr/local
-  curl -O https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz || { echo "Failed to download Node.js"; exit 1; }
-  tar -xf node-v18.20.2-linux-x64.tar.xz || { echo "Failed to extract Node.js"; exit 1; }
-  cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/local/ || { echo "Failed to copy Node.js binaries"; exit 1; }
-  rm -rf node-v18.20.2-linux-x64*
-  ln -sf /usr/local/bin/node /usr/bin/node
-  ln -sf /usr/local/bin/npm /usr/bin/npm
+    # Install Node.js 18 and PM2
+    cd /usr/local
+    curl -O https://nodejs.org/dist/v18.20.2/node-v18.20.2-linux-x64.tar.xz
+    tar -xf node-v18.20.2-linux-x64.tar.xz
+    cp -r node-v18.20.2-linux-x64/{bin,include,lib,share} /usr/local/
+    rm -rf node-v18.20.2-linux-x64*
+    ln -sf /usr/local/bin/node /usr/bin/node
+    ln -sf /usr/local/bin/npm /usr/bin/npm
+    npm install -g pm2
+    ln -sf /usr/local/bin/pm2 /usr/bin/pm2
 
-  echo "[3] Verify Node.js and npm installation"
-  node -v || { echo "Node.js not found"; exit 1; }
-  npm -v || { echo "npm not found"; exit 1; }
+    # Create and mount EFS directories
+    mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data
+    mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs
 
-  echo "[4] Create and mount EFS directories"
-  mkdir -p /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs1_dns_name}:/ /mnt/efs/code || { echo "EFS code mount failed"; exit 1; }
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs2_dns_name}:/ /mnt/efs/data || { echo "EFS data mount failed"; exit 1; }
-  mount -t nfs4 -o nfsvers=4.1 ${var.efs3_dns_name}:/ /mnt/efs/logs || { echo "EFS logs mount failed"; exit 1; }
+    # Persist EFS mounts in fstab
+    echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
 
-  echo "[5] Persist EFS mounts in /etc/fstab"
-  echo "${var.efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "${var.efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0" >> /etc/fstab
-  echo "${var.efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0" >> /etc/fstab
+    # Fix permissions for ec2-user
+    chown -R ec2-user:ec2-user /mnt/efs/code /mnt/efs/data /mnt/efs/logs
 
-  echo "[6] Clean and clone application repo into /mnt/efs/code"
-  rm -rf /mnt/efs/code && mkdir -p /mnt/efs/code
-  git clone --single-branch --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code || {
-    echo "Git clone failed"
-    exit 1
-  }
-
-  echo "[7] Fix ownership for ec2-user"
-  chown -R ec2-user:ec2-user /mnt/efs/code /mnt/efs/data /mnt/efs/logs
-
-  echo "[8] Ensure express, cors, body-parser dependencies and install"
-  cd /mnt/efs/code/nodejs
-
-  # If no package.json, create a basic one
-  if [ ! -f package.json ]; then
-    echo '{"name":"app","version":"1.0.0","main":"index.js","dependencies":{}}' > package.json
-  fi
-
-  # Ensure dependencies block exists
-  if ! grep -q '"dependencies"' package.json; then
-    tmp=$(mktemp)
-    jq '. + {"dependencies":{}}' package.json > "$tmp" && mv "$tmp" package.json
-  fi
-
-  # Inject required dependencies using jq
-  for pkg in express cors body-parser; do
-    if ! grep -q "\"$pkg\"" package.json; then
-      tmp=$(mktemp)
-      jq ".dependencies[\"$pkg\"] = \"latest\"" package.json > "$tmp" && mv "$tmp" package.json
+    # If S3 app.zip exists, download and run it on first boot
+    if aws s3 ls s3://vj-application/app.zip; then
+      aws s3 cp s3://vj-application/app.zip /tmp/app.zip
+      rm -rf /mnt/efs/code/nodejs && mkdir -p /mnt/efs/code/nodejs
+      unzip /tmp/app.zip -d /mnt/efs/code/nodejs
+      chown -R ec2-user:ec2-user /mnt/efs/code
+      cd /mnt/efs/code/nodejs
+      sudo -u ec2-user npm install
+      sudo -u ec2-user pm2 start index.js --name node-app
+      sudo -u ec2-user pm2 save
     fi
-  done
-
-  # Install Node packages
-  sudo -u ec2-user npm install > /mnt/efs/logs/npm-install.log 2>&1 || {
-    echo "npm install failed. Check /mnt/efs/logs/npm-install.log"
-    exit 1
-  }
-
-  echo "[9] Run the Node.js app in background"
-  sudo -u ec2-user nohup node index.js > /mnt/efs/logs/app.log 2>&1 &
-  sleep 3
-
-  if ! pgrep -f "node index.js" > /dev/null; then
-    echo "Node.js app failed to start"
-    cat /mnt/efs/logs/app.log
-    exit 1
-  fi
-
-  echo "[10] Health check"
-  if ! curl --silent --fail http://localhost:3000; then
-    echo "App failed to respond on port 3000"
-    exit 2
-  fi
-
-  echo " Setup complete. Node.js app is running and healthy."
   EOF
-
-
-
 
   tags = {
     Name = var.ec2_tag_name
