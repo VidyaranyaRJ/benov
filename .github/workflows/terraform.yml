@@ -63,50 +63,29 @@ jobs:
 
 
 
-      - name: Extract instance ID from Terraform output
+      - name: Extract and Clean Instance ID
+        id: extract_id
         run: |
-          # Extract the instance ID using grep to make sure we only get the actual ID
-          terraform output | grep module_instance_id_for_ssm | sed 's/.*= "\(.*\)"/\1/' > instance_id.txt
-          # Display the extracted ID for verification
-          echo "Extracted Instance ID:"
-          cat instance_id.txt
-
-      - name: Get Instance ID for SSM
-        id: get_instance
-        run: |
-          # Read the instance ID from the file
-          INSTANCE_ID=$(cat instance_id.txt)
-          # Hard-code this for testing if all else fails
-          # INSTANCE_ID="i-01f735f2b02fa758e"
-          echo "Using Instance ID: $INSTANCE_ID"
-          # Use file command redirection for GitHub environment
-          echo "INSTANCE_ID=$INSTANCE_ID" > "$GITHUB_ENV"
+          # Extract instance ID and clean it (remove any whitespace/newlines)
+          INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm | tr -d '\n\r ')
+          # Write to a file with no newline at the end
+          echo -n "$INSTANCE_ID" > clean_instance_id.txt
+          # Verify contents of the file (for debugging)
+          echo "Clean Instance ID:"
+          cat clean_instance_id.txt | xxd -p
+          # Store value for next steps
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_OUTPUT
 
       - name: Wait for SSM to be ready
         run: |
           echo "Waiting for EC2 + SSM Agent to initialize..."
           sleep 60
 
-      - name: Verify environment variable
-        run: |
-          echo "Instance ID from environment: $INSTANCE_ID"
-          if [ -z "$INSTANCE_ID" ]; then
-            echo "Using hardcoded ID as fallback"
-            INSTANCE_ID="i-01f735f2b02fa758e"
-          fi
-          echo "Final Instance ID: $INSTANCE_ID" 
-
       - name: Check Node.js, PM2, EFS status
         run: |
-          # Read ID from file as a backup method
-          if [ -z "$INSTANCE_ID" ]; then
-            INSTANCE_ID=$(cat instance_id.txt)
-            if [ -z "$INSTANCE_ID" ]; then
-              INSTANCE_ID="i-01f735f2b02fa758e"
-            fi
-          fi
-          
-          echo "Running diagnostics on EC2 instance: $INSTANCE_ID"
+          # Read clean instance ID
+          INSTANCE_ID=$(cat clean_instance_id.txt)
+          echo "Using instance ID: [$INSTANCE_ID]"
           
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
@@ -118,13 +97,8 @@ jobs:
 
       - name: Verify EFS directory contents
         run: |
-          # Read ID from file as a backup method
-          if [ -z "$INSTANCE_ID" ]; then
-            INSTANCE_ID=$(cat instance_id.txt)
-            if [ -z "$INSTANCE_ID" ]; then
-              INSTANCE_ID="i-01f735f2b02fa758e"
-            fi
-          fi
+          # Read clean instance ID
+          INSTANCE_ID=$(cat clean_instance_id.txt)
           
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
