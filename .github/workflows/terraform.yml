@@ -77,22 +77,25 @@ jobs:
 
       - name: Check Node.js, PM2, EFS status
         run: |
+          INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)
+          echo "Running diagnostics on EC2 instance: $INSTANCE_ID"
           aws ssm send-command \
-            --instance-ids ${{ steps.instance_id.outputs.id }} \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
+            --parameters commands='["node -v", "pm2 list", "df -h | grep efs"]' \
             --comment "Check Node.js, PM2, and EFS status" \
-            --region ${{ env.AWS_REGION }} \
+            --region us-east-2 \
             --output text
+
+
 
       - name: Verify EFS directory contents
         run: |
+          INSTANCE_ID=$(terraform output -raw module_instance_id_for_ssm)
           aws ssm send-command \
-            --instance-ids ${{ steps.instance_id.outputs.id }} \
+            --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
+            --parameters commands='["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
             --comment "Check app deployment and env file" \
-            --region ${{ env.AWS_REGION }} \
+            --region us-east-2 \
             --output text
-
-
