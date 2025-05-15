@@ -86,22 +86,80 @@ jobs:
             exit 1
           fi
 
-      - name: Check Node.js, PM2, EFS status on EC2
+      - name: Check Node.js, PM2, EFS status and wait for result
         run: |
-          aws ssm send-command \
+          CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
             --comment "Check Node.js, PM2, and EFS status" \
             --region ${{ env.AWS_REGION }} \
-            --output text
+            --query "Command.CommandId" \
+            --output text)
 
-      - name: Verify EFS directory contents
+          echo "SSM command sent: $CMD_ID"
+          
+          for i in {1..20}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ${{ env.AWS_REGION }} \
+              --query "Status" \
+              --output text)
+              
+            echo "Command status: $STATUS"
+
+            if [[ "$STATUS" == "Success" ]]; then
+              aws ssm get-command-invocation \
+                --command-id "$CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --output text
+              break
+            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
+              echo "❌ Command failed or cancelled"
+              exit 1
+            fi
+            
+            echo "Waiting for 5 seconds..."
+            sleep 5
+          done
+
+      - name: Verify EFS directory contents and wait for result
         run: |
-          aws ssm send-command \
+          CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
             --comment "Check app deployment and env file" \
             --region ${{ env.AWS_REGION }} \
-            --output text
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command sent: $CMD_ID"
+
+          for i in {1..20}; do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "$CMD_ID" \
+              --instance-id "$INSTANCE_ID" \
+              --region ${{ env.AWS_REGION }} \
+              --query "Status" \
+              --output text)
+
+            echo "Command status: $STATUS"
+
+            if [[ "$STATUS" == "Success" ]]; then
+              aws ssm get-command-invocation \
+                --command-id "$CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --output text
+              break
+            elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
+              echo "❌ Command failed or cancelled"
+              exit 1
+            fi
+
+            echo "Waiting for 5 seconds..."
+            sleep 5
+          done
