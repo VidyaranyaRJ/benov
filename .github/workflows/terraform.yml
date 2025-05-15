@@ -55,43 +55,43 @@ jobs:
         run: terraform plan -input=false -out=tfplan
 
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve
 
-  #     - name: Terraform Apply
-  #       run: terraform apply -auto-approve tfplan
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
 
 
-  # deploy:
-  #   runs-on: ubuntu-latest
-  #   needs: terraform
-  #   steps:
-  #     - name: Configure AWS Credentials
-  #       uses: aws-actions/configure-aws-credentials@v2
-  #       with:
-  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         aws-region: us-east-2
+  deploy:
+    runs-on: ubuntu-latest
+    needs: terraform
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
 
-  #     - name: Trigger SSM to update EFS code on EC2
-  #       run: |
-  #         aws ssm send-command \
-  #           --document-name "AWS-RunShellScript" \
-  #           --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
-  #           --comment "Pull latest code and restart Node app" \
-  #           --parameters '{
-  #             "commands": [
-  #               "cd /mnt/efs/code || git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
-  #               "chown -R ubuntu:ubuntu /mnt/efs/code",
-  #               "cd /mnt/efs/code/nodejs",
-  #               "sudo -u ubuntu git pull origin nodejs",
-  #               "sudo -u ubuntu npm install",
-  #               "if ! sudo -u ubuntu command -v pm2 >/dev/null; then sudo -u ubuntu npm install -g pm2; fi",
-  #               "sudo ln -sf $(which pm2) /usr/bin/pm2",
-  #               "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
-  #               "sudo -u ubuntu pm2 save"
-  #             ]
-  #           }' \
-  #           --region us-east-2
+      - name: Trigger SSM to update EFS code on EC2
+        run: |
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:Name,Values=ecs-instance-ubuntu" \
+            --comment "Pull latest code and restart Node app" \
+            --parameters '{
+              "commands": [
+                "cd /mnt/efs/code || git clone --branch nodejs https://github.com/VidyaranyaRJ/application.git /mnt/efs/code",
+                "chown -R ubuntu:ubuntu /mnt/efs/code",
+                "cd /mnt/efs/code/nodejs",
+                "sudo -u ubuntu git pull origin nodejs",
+                "sudo -u ubuntu npm install",
+                "if ! sudo -u ubuntu command -v pm2 >/dev/null; then sudo -u ubuntu npm install -g pm2; fi",
+                "sudo ln -sf $(which pm2) /usr/bin/pm2",
+                "sudo -u ubuntu pm2 restart nodejs-app || sudo -u ubuntu pm2 start index.js --name nodejs-app",
+                "sudo -u ubuntu pm2 save"
+              ]
+            }' \
+            --region us-east-2
 
   
