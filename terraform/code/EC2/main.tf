@@ -38,7 +38,7 @@ locals {
   ec2_tag_name_tag4 = "Instance_4"
   ec2_tag_name_tag5 = "Instance_5"
 
-  ami = "ami-06c8f2ec674c67112"
+  ami = "ami-0d0f28110d16ee7d6"
 
 }
 
