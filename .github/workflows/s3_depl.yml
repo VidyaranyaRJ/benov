@@ -188,6 +188,7 @@
 
 
 
+
 name: Terraform EFS Multi-Instance Deployment
 
 on:
@@ -255,11 +256,11 @@ jobs:
             -backend-config="key=${{ env.TF_STATE_KEY }}" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="encrypt=true"
-        working-directory: ./terraform/code/EC2         # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
-        working-directory: ./terraform/code/EC2               # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2
 
       # - name: Terraform Destroy
       #   run: terraform destroy -auto-approve
@@ -267,7 +268,7 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/EC2                   # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2
 
       # === Extract EC2 Instance IDs from tfstate ===
       - name: Download remote tfstate from S3
@@ -293,7 +294,10 @@ jobs:
           # Convert to array and display
           INSTANCE_IDS_ARRAY=($INSTANCE_IDS)
           echo "Found ${#INSTANCE_IDS_ARRAY[@]} instance IDs: $INSTANCE_IDS"
-          echo "INSTANCE_IDS=$INSTANCE_IDS" >> $GITHUB_ENV
+          
+          # Format the instance IDs as a space-separated string for environment variable
+          INSTANCE_IDS_SPACE_SEPARATED=$(echo "$INSTANCE_IDS" | tr '\n' ' ')
+          echo "INSTANCE_IDS=$INSTANCE_IDS_SPACE_SEPARATED" >> $GITHUB_ENV
 
       - name: Wait for SSM to be ready
         run: |
