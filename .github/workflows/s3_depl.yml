@@ -14,7 +14,7 @@ env:
   TF_STATE_KEY: "EFS/terraform.tfstate"
   AWS_REGION: us-east-2
   ZIP_NAME: nodejs-app.zip
-  ZIP_S3_KEY: artifacts/nodejs-app.zip
+  ZIP_S3_KEY: nodejs/nodejs-app.zip 
 
 jobs:
   deploy:
