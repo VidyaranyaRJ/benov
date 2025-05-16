@@ -282,8 +282,6 @@ jobs:
         working-directory: ./terraform/code/EC2     # Network EFS EC2
 
 
-
-
       # # === 6. Extract EC2 Instance ID from tfstate ===
       # - name: Download remote tfstate from S3
       #   run: aws s3 cp s3://${{ env.TF_STATE_BUCKET }}/${{ env.TF_STATE_KEY }} tfstate.json
