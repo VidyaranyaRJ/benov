@@ -21,7 +21,7 @@ app.get('/', (req, res) => {
   const hostname = os.hostname();
   
   // Send response with current timestamp and hostname
-  res.send(`Hello, World! - VJ ${dayOfWeek} ${timeString} - Server: ${hostname}`);
+  res.send(`Hello, World! - VJ all 5 instances ${dayOfWeek} ${timeString} - Server: ${hostname}`);
 });
 
 app.listen(3000, '0.0.0.0', () => {
