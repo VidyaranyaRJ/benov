@@ -27,9 +27,9 @@ jobs:
       # === 2. Zip and Upload Node.js App to S3 ===
       - name: Zip Node.js App
         run: |
-          cd ../../../../  # adjust based on actual nodejs-app path
           zip -r ${{ env.ZIP_NAME }} nodejs-app
-          mv ${{ env.ZIP_NAME }} ./terraform/code/EC2/                          
+          mv ${{ env.ZIP_NAME }} terraform/code/EC2/
+        working-directory: ${{ github.workspace }}                      
 
       - name: Upload ZIP to S3
         run: |
