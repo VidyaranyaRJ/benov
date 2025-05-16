@@ -207,7 +207,7 @@ on:
 
 env:
   TF_STATE_BUCKET: vj-test-benvolate
-  TF_STATE_KEY: "Network/terraform.tfstate"     # Network EFS EC2
+  TF_STATE_KEY: "EFS/terraform.tfstate"     # Network EFS EC2
   AWS_REGION: us-east-2
   ZIP_NAME: nodejs-app.zip
   ZIP_S3_KEY: nodejs/nodejs-app.zip 
@@ -265,21 +265,19 @@ jobs:
             -backend-config="key=${{ env.TF_STATE_KEY }}" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="encrypt=true"
-        working-directory: ./terraform/code/Network    # Network EFS EC2
+        working-directory: ./terraform/code/EFS    # Network EFS EC2
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
-        working-directory: ./terraform/code/Network     # Network EFS EC2
+        working-directory: ./terraform/code/EFS     # Network EFS EC2
 
       # - name: Terraform Destroy
       #   run: terraform destroy -auto-approve
       #   working-directory: ./terraform/code/Network     # Network EFS EC2
 
-
-
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/Network     # Network EFS EC2
+        working-directory: ./terraform/code/EFS     # Network EFS EC2
 
 
       # # === 6. Extract EC2 Instance ID from tfstate ===
