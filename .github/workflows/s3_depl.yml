@@ -35,6 +35,7 @@ jobs:
         run: |
           cd Nodejs
           zip -r ../${{ env.ZIP_NAME }} .
+          cd ..
         working-directory: ${{ github.workspace }}
 
       - name: Upload deploy script to S3
