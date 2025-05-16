@@ -32,7 +32,6 @@ jobs:
       - name: Zip Nodejs app
         run: |
           zip -r ${{ env.ZIP_NAME }} Nodejs
-          mv ${{ env.ZIP_NAME }} ./  # or move to terraform/code/ if needed
         working-directory: ${{ github.workspace }}
 
       # === 3. Upload ZIP to S3 ===
