@@ -41,6 +41,3 @@ variable "ami" {
 }
 
 
-variable "git_repo_url" {
-  type = string
-}

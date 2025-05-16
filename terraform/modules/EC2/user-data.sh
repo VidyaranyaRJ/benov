@@ -1,12 +1,12 @@
 #!/bin/bash
-# EC2 User Data script using EFS DNS names for Node.js app deployment
+# EC2 User Data script for Node.js app deployment using EFS and S3-based delivery
 
 exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> Starting EC2 provisioning at $(date)"
 
 # === System Preparation ===
 yum update -y
-yum install -y git amazon-efs-utils nfs-utils nodejs npm rsync -y
+yum install -y amazon-efs-utils nfs-utils nodejs npm rsync -y
 npm install -g pm2
 
 # === Create Mount Points ===
@@ -27,35 +27,8 @@ EOF
 # === Permissions ===
 chmod 755 /mnt/efs/{code,data,logs}
 
-# === Setup App Directory Structure ===
-mkdir -p /mnt/efs/code/{nodejs-app,git-repo}
-touch /mnt/efs/logs/git-updates.log
-chmod 644 /mnt/efs/logs/git-updates.log
-
-# === Clone Repository ===
-cd /mnt/efs/code/git-repo || exit 1
-git clone --single-branch --branch nodejs "${git_repo_url}" .
-mv nodejs/* . && rm -rf nodejs
-
-# === Git Hook for Deployment ===
-cat > .git/hooks/post-receive <<'HOOK'
-#!/bin/bash
-echo ">>> Git update received at $(date)" >> /mnt/efs/logs/git-updates.log
-
-rsync -av --exclude='.git' --delete /mnt/efs/code/git-repo/ /mnt/efs/code/nodejs-app/
-cd /mnt/efs/code/nodejs-app
-npm install
-
-pm2 restart nodejs-app || pm2 start app.js --name nodejs-app
-
-echo ">>> Deployment completed at $(date)" >> /mnt/efs/logs/git-updates.log
-HOOK
-
-chmod +x .git/hooks/post-receive
-
-# === Initial Deployment ===
-echo ">>> Initial deployment at $(date)" >> /mnt/efs/logs/git-updates.log
-rsync -av --exclude='.git' --delete /mnt/efs/code/git-repo/ /mnt/efs/code/nodejs-app/
+# === Setup App Directory ===
+mkdir -p /mnt/efs/code/nodejs-app
 
 # === .env Config ===
 cat > /mnt/efs/code/nodejs-app/.env <<EOF
@@ -64,13 +37,6 @@ NODE_ENV=production
 LOG_PATH=/mnt/efs/logs
 DATA_PATH=/mnt/efs/data
 EOF
-
-# === Install and Run App ===
-cd /mnt/efs/code/nodejs-app
-npm install
-pm2 start app.js --name nodejs-app
-pm2 startup
-pm2 save
 
 # === Log Rotation ===
 cat > /etc/logrotate.d/nodejs-app <<EOF
