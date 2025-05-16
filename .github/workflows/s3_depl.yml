@@ -99,59 +99,36 @@ jobs:
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "set -e",
-
-              "# Ensure directories exist",
-              "mkdir -p /mnt/efs/code /mnt/efs/logs",
-
-              "# Download app ZIP from S3",
-              "aws s3 cp s3://${{ env.TF_STATE_BUCKET }}/${{ env.ZIP_S3_KEY }} /mnt/efs/code/${{ env.ZIP_NAME }}",
-
-              "# Extract to a temp folder",
-              "rm -rf /mnt/efs/code/nodejs-app-temp",
-              "mkdir -p /mnt/efs/code/nodejs-app-temp",
-              "unzip -o /mnt/efs/code/${{ env.ZIP_NAME }} -d /mnt/efs/code/nodejs-app-temp",
-
-              "# Install dependencies",
-              "cd /mnt/efs/code/nodejs-app-temp",
-              "npm install",
-
-              "# Ensure PM2 is available",
-              "if ! command -v pm2 > /dev/null; then npm install -g pm2; fi",
-
-              "# Atomically switch the app directory using symlink",
-              "ln -sfn /mnt/efs/code/nodejs-app-temp /mnt/efs/code/nodejs-app",
-
-              "# Start or reload the app via PM2",
-              "cd /mnt/efs/code/nodejs-app",
-              "pm2 describe nodejs-app > /dev/null && pm2 reload nodejs-app --update-env || pm2 start index.js --name nodejs-app",
-              "pm2 save"
-            ]' \
+            --parameters 'commands=[ ...your shell commands here... ]' \
             --region ${{ env.AWS_REGION }} \
-            --comment "Zero-downtime Node.js deploy via symlink + PM2" \
             --query "Command.CommandId" \
             --output text)
 
           echo "SSM command sent: $CMD_ID"
 
-          for i in {1..15}; do
+          for i in {1..30}; do
             STATUS=$(aws ssm get-command-invocation \
               --command-id "$CMD_ID" \
               --instance-id "$INSTANCE_ID" \
               --region ${{ env.AWS_REGION }} \
               --query "Status" \
-              --output text)
+              --output text 2>/dev/null || echo "Pending")
 
             echo "Command status: $STATUS"
+
             if [[ "$STATUS" == "Success" ]]; then
               echo "✅ App deployed and restarted successfully."
               break
             elif [[ "$STATUS" == "Failed" ]]; then
               echo "❌ Deployment failed"
+              aws ssm get-command-invocation \
+                --command-id "$CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }}
               exit 1
             fi
-            sleep 5
+
+            sleep 10
           done
 
       # === 8. Configure Nginx (Optional If Already Done) ===
