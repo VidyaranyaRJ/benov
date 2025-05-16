@@ -271,15 +271,15 @@ jobs:
         run: terraform plan -input=false -out=tfplan
         working-directory: ./terraform/code/Network     # Network EFS EC2
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-        working-directory: ./terraform/code/Network     # Network EFS EC2
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve
+      #   working-directory: ./terraform/code/Network     # Network EFS EC2
 
 
 
-      # - name: Terraform Apply
-      #   run: terraform apply -auto-approve tfplan
-      #   working-directory: ./terraform/code/EC2     # Network EFS EC2
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform/code/EC2     # Network EFS EC2
 
 
 
