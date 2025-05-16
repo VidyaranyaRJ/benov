@@ -279,7 +279,7 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/EC2     # Network EFS EC2
+        working-directory: ./terraform/code/Network     # Network EFS EC2
 
 
       # # === 6. Extract EC2 Instance ID from tfstate ===
