@@ -1,3 +1,7 @@
+# Network EFS EC2
+
+ 
+
 name: Terraform EFS Deployment
 
 on:
@@ -7,7 +11,7 @@ on:
 
 env:
   TF_STATE_BUCKET: vj-test-benvolate
-  TF_STATE_KEY: "EFS/terraform.tfstate"      # Network EFS EC2
+  TF_STATE_KEY: "EFS/terraform.tfstate"
   AWS_REGION: us-east-2
   ZIP_NAME: nodejs-app.zip
   ZIP_S3_KEY: artifacts/nodejs-app.zip
@@ -17,31 +21,32 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: ./terraform/code/EFS          # Network EFS EC2
+        working-directory: ./terraform/EFS  # adjust if Terraform is deeper
 
     steps:
-      # === 1. Checkout Code ===
+      # === 1. Checkout this repo ===
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # === 2. Zip and Upload Node.js App to S3 ===
-      - name: Zip Node.js App
+      # === 2. Zip the Nodejs folder ===
+      - name: Zip Nodejs app
         run: |
-          zip -r ${{ env.ZIP_NAME }} nodejs-app
-          mv ${{ env.ZIP_NAME }} terraform/code/EC2/
-        working-directory: ${{ github.workspace }}                      
+          zip -r ${{ env.ZIP_NAME }} Nodejs
+          mv ${{ env.ZIP_NAME }} ./  # or move to terraform/code/ if needed
+        working-directory: ${{ github.workspace }}
 
+      # === 3. Upload ZIP to S3 ===
       - name: Upload ZIP to S3
         run: |
           aws s3 cp ${{ env.ZIP_NAME }} s3://${{ env.TF_STATE_BUCKET }}/${{ env.ZIP_S3_KEY }}
+        working-directory: ${{ github.workspace }}
 
-      # === 3. Setup Terraform ===
+      # === 4. Terraform Setup ===
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
 
-      # === 4. Configure AWS ===
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -52,7 +57,6 @@ jobs:
       - name: Verify AWS Access
         run: aws sts get-caller-identity
 
-      # === 5. Terraform Init, Plan, Apply ===
       - name: Terraform Init
         run: |
           terraform init \
@@ -64,16 +68,8 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
 
-
-      # - name: Terraform Destroy
-      #   run: terraform destroy -auto-approve
-
-
-
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-
-
 
 
 
