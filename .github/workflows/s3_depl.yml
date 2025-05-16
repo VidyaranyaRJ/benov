@@ -56,20 +56,20 @@ jobs:
             -backend-config="key=${{ env.TF_STATE_KEY }}" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="encrypt=true"
-        working-directory: ./terraform/code/EFS  # <-- adjust if Terraform files are elsewhere   # Network EFS EC2
+        working-directory: ./terraform/code/EFS    # Network EFS EC2
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
         working-directory: ./terraform/code/EFS
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/EFS
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
+      #   working-directory: ./terraform/code/EFS
 
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-        working-directory: ./terraform/code/EFS
+      # - name: Terraform Destroy
+      #   run: terraform destroy -auto-approve
+      #   working-directory: ./terraform/code/EFS
 
 
 
