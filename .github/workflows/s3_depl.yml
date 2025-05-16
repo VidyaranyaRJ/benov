@@ -31,16 +31,28 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Zip Nodejs app (contents only)
+      - name: Checkout Node.js App Code (ensure latest commit)
+        uses: actions/checkout@v3
+        with:
+          ref: nodejs  # or main if you're not using a separate branch
+
+      - name: Confirm index.js has updated text
+        run: grep 'Hello' Nodejs/index.js
+
+      - name: Clean old zip
+        run: rm -f ${{ env.ZIP_NAME }}
+
+      - name: Zip Node.js App (with correct structure)
         run: |
           cd Nodejs
           zip -r ../${{ env.ZIP_NAME }} .
-          cd ..
-        working-directory: ${{ github.workspace }}
+          ls -lh ../${{ env.ZIP_NAME }}
 
       - name: Upload deploy script to S3
         run: aws s3 cp scripts/node-deploy.sh s3://${{ env.TF_STATE_BUCKET }}/scripts/node-deploy.sh
-        working-directory: ${{ github.workspace }}
+
+      - name: Upload Node.js App Zip to S3
+        run: aws s3 cp ${{ env.ZIP_NAME }} s3://${{ env.TF_STATE_BUCKET }}/${{ env.ZIP_S3_KEY }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
