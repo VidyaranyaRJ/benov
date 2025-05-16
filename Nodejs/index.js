@@ -16,8 +16,12 @@ app.get('/', (req, res) => {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayOfWeek = days[now.getDay()];
   
-  // Send response with current timestamp
-  res.send(`Hello, World! - VJ ${dayOfWeek} ${timeString}`);
+  // Get server hostname to identify different instances
+  const os = require('os');
+  const hostname = os.hostname();
+  
+  // Send response with current timestamp and hostname
+  res.send(`Hello, World! - VJ ${dayOfWeek} ${timeString} - Server: ${hostname}`);
 });
 
 app.listen(3000, '0.0.0.0', () => {
