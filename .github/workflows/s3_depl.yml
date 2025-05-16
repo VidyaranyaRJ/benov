@@ -19,15 +19,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./terraform/EFS  # adjust if Terraform is deeper
 
     steps:
-      # === 1. Checkout this repo ===
       - name: Checkout Repository
         uses: actions/checkout@v3
-
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
@@ -36,30 +31,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      # === 2. Zip the Nodejs folder ===
       - name: Zip Nodejs app
         run: |
           zip -r ${{ env.ZIP_NAME }} Nodejs
         working-directory: ${{ github.workspace }}
 
-      # === 3. Upload ZIP to S3 ===
       - name: Upload ZIP to S3
         run: |
           aws s3 cp ${{ env.ZIP_NAME }} s3://${{ env.TF_STATE_BUCKET }}/${{ env.ZIP_S3_KEY }}
         working-directory: ${{ github.workspace }}
 
-      # === 4. Terraform Setup ===
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.0
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify AWS Access
         run: aws sts get-caller-identity
@@ -71,12 +56,16 @@ jobs:
             -backend-config="key=${{ env.TF_STATE_KEY }}" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="encrypt=true"
+        working-directory: ./terraform/EFS  # <-- adjust if Terraform files are elsewhere   # Network EFS EC2
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
+        working-directory: ./terraform/EFS
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform/EFS
+
 
 
 
