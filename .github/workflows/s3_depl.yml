@@ -36,9 +36,8 @@ jobs:
           zip -r ${{ env.ZIP_NAME }} Nodejs
         working-directory: ${{ github.workspace }}
 
-      - name: Upload ZIP to S3
-        run: |
-          aws s3 cp ${{ env.ZIP_NAME }} s3://${{ env.TF_STATE_BUCKET }}/${{ env.ZIP_S3_KEY }}
+      - name: Upload deploy script to S3
+        run: aws s3 cp scripts/node-deploy.sh s3://${{ env.TF_STATE_BUCKET }}/scripts/node-deploy.sh
         working-directory: ${{ github.workspace }}
 
       - name: Setup Terraform
@@ -99,7 +98,11 @@ jobs:
           CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[ ...your shell commands here... ]' \
+            --parameters 'commands=[
+              "curl -o /tmp/node-deploy.sh https://vj-test-benvolate.s3.us-east-2.amazonaws.com/scripts/node-deploy.sh",
+              "chmod +x /tmp/node-deploy.sh",
+              "bash /tmp/node-deploy.sh"
+            ]' \
             --region ${{ env.AWS_REGION }} \
             --query "Command.CommandId" \
             --output text)
@@ -141,7 +144,7 @@ jobs:
               "sudo yum install -y nginx",
               "sudo systemctl enable nginx",
               "sudo systemctl start nginx",
-              "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<EOF\nserver {\n    listen 80;\n    server_name _;\n    location / {\n        proxy_pass http://localhost:3000;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade \$http_upgrade;\n        proxy_set_header Connection 'upgrade';\n        proxy_set_header Host \$host;\n        proxy_cache_bypass \$http_upgrade;\n    }\n}\nEOF\"",
+              "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'CONFIG'\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection 'upgrade';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
               "sudo nginx -t && sudo systemctl reload nginx"
             ]' \
             --region ${{ env.AWS_REGION }} \
