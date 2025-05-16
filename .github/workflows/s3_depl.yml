@@ -31,9 +31,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Zip Nodejs app
+      - name: Zip Nodejs app (contents only)
         run: |
-          zip -r ${{ env.ZIP_NAME }} Nodejs
+          cd Nodejs
+          zip -r ../${{ env.ZIP_NAME }} .
         working-directory: ${{ github.workspace }}
 
       - name: Upload deploy script to S3
