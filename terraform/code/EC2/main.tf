@@ -57,49 +57,49 @@ module "Instance_1" {
 }
 
 
-module "Instance_2" {
-  source                                 = "../../modules/EC2"
-  ami = local.ami
-  subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-  ec2_tag_name = local.ec2_tag_name_tag2
-  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-}
+# module "Instance_2" {
+#   source                                 = "../../modules/EC2"
+#   ami = local.ami
+#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
+#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
+#   ec2_tag_name = local.ec2_tag_name_tag2
+#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+# }
 
 
-module "Instance_3" {
-  source                                 = "../../modules/EC2"
-  ami = local.ami
-  subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-  ec2_tag_name = local.ec2_tag_name_tag3
-  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-}
+# module "Instance_3" {
+#   source                                 = "../../modules/EC2"
+#   ami = local.ami
+#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
+#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
+#   ec2_tag_name = local.ec2_tag_name_tag3
+#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+# }
 
 
-module "Instance_4" {
-  source                                 = "../../modules/EC2"
-  ami = local.ami
-  subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-  ec2_tag_name = local.ec2_tag_name_tag4
-  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-}
+# module "Instance_4" {
+#   source                                 = "../../modules/EC2"
+#   ami = local.ami
+#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
+#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
+#   ec2_tag_name = local.ec2_tag_name_tag4
+#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+# }
 
 
-module "Instance_5" {
-  source                                 = "../../modules/EC2"
-  ami = local.ami
-  subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-  ec2_tag_name = local.ec2_tag_name_tag5
-  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-}
+# module "Instance_5" {
+#   source                                 = "../../modules/EC2"
+#   ami = local.ami
+#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
+#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
+#   ec2_tag_name = local.ec2_tag_name_tag5
+#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+# }

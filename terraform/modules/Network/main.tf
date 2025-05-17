@@ -20,6 +20,19 @@ resource "aws_subnet" "my_subnet" {
 }
 
 
+###########
+resource "aws_subnet" "my_subnet_2" {
+  vpc_id     = aws_vpc.my_vpc.id
+  cidr_block = "10.0.2.0/24"
+  availability_zone = "us-east-2b" 
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "my-subnet-node-js-2"
+  }
+  depends_on = [  aws_vpc.my_vpc ]
+}
+##############
+
 resource "aws_internet_gateway" "my_gateway" {
   vpc_id = aws_vpc.my_vpc.id
   depends_on = [  aws_vpc.my_vpc ]
