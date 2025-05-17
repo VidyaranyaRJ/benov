@@ -32,8 +32,8 @@ data "terraform_remote_state" "ec2" {
 ###################### Locals ###############################
 
 locals {
-  load_balancer_name = "Application load balancer"
-  target_group_name = "ALB TG"
+  load_balancer_name = "Application-load-balancer"
+  target_group_name = "ALB-TG"
 }
 
 
