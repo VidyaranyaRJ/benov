@@ -55,6 +55,7 @@ jobs:
         with:
           terraform_version: 1.5.0
 
+          
       - name: Verify AWS Access
         run: aws sts get-caller-identity
 
