@@ -38,6 +38,12 @@ locals {
   ec2_tag_name_tag4 = "Instance_4"
   ec2_tag_name_tag5 = "Instance_5"
 
+  hostname_instance_1 = "Sun"
+  hostname_instance_2 = "Mercury"
+  hostname_instance_3 = "Venus"
+  hostname_instance_4 = "Earth"
+  hostname_instance_5 = "Mars"
+
   ami = "ami-0d0f28110d16ee7d6"
 
 }
@@ -54,6 +60,7 @@ module "Instance_1" {
   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+  host_name = local.hostname_instance_1
 }
 
 
@@ -66,6 +73,7 @@ module "Instance_1" {
 #   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
 #   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+#   host_name = local.hostname_instance_2
 # }
 
 
@@ -78,6 +86,7 @@ module "Instance_1" {
 #   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
 #   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+#   host_name = local.hostname_instance_3
 # }
 
 
@@ -90,6 +99,7 @@ module "Instance_1" {
 #   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
 #   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+#   host_name = local.hostname_instance_4
 # }
 
 
@@ -102,4 +112,5 @@ module "Instance_1" {
 #   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
 #   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+#   host_name = local.hostname_instance_5
 # }

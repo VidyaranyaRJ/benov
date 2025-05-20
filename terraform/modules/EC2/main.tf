@@ -14,6 +14,7 @@ resource "aws_instance" "ecs_instance" {
       efs1_dns_name  = var.efs1_dns_name
       efs2_dns_name  = var.efs2_dns_name
       efs3_dns_name  = var.efs3_dns_name
+      hostname      = var.host_name
     })
 
   tags = {

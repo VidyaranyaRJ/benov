@@ -41,3 +41,6 @@ variable "ami" {
 }
 
 
+variable "host_name" {
+  type = string
+}

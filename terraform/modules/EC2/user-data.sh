@@ -1,6 +1,10 @@
 #!/bin/bash
 # EC2 User Data script for Node.js app deployment using EFS and S3-based delivery
 
+hostnamectl set-hostname ${hostname}
+echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
+
+
 exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> Starting EC2 provisioning at $(date)"
 
