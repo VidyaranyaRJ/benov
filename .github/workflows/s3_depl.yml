@@ -78,7 +78,7 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/Load Balancer                 # Network EFS EC2 Load Balancer
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2 Load Balancer
 
       # === Extract EC2 Instance IDs from tfstate ===
       - name: Download remote tfstate from S3
