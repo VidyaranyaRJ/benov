@@ -1,4 +1,4 @@
-name: Terraform EFS Deployment
+name: Terraform EFS Multi-Instance Deployment
 
 on:
   push:
@@ -7,275 +7,7 @@ on:
 
 env:
   TF_STATE_BUCKET: vj-test-benvolate
-  TF_STATE_KEY: "EFS/terraform.tfstate"   # Network EFS EC2
-  AWS_REGION: us-east-2
-
-jobs:
-  terraform:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./terraform/code/EFS   # Network EFS EC2
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.5.0
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
-
-      - name: Verify AWS Access
-        run: aws sts get-caller-identity
-
-      - name: Terraform Init
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ env.TF_STATE_BUCKET }}" \
-            -backend-config="key=${{ env.TF_STATE_KEY }}" \
-            -backend-config="region=us-east-2" \
-            -backend-config="encrypt=true"
-
-      # - name: Terraform Format Check
-      #   run: terraform fmt -check
-      #   continue-on-error: true
-
-      # - name: Terraform Validate
-      #   run: terraform validate
-
-      # - name: Terraform Plan
-      #   run: terraform plan -input=false -out=tfplan
-
-
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-
-      # - name: Terraform Apply
-      #   run: terraform apply -auto-approve tfplan
-
-
-
-#       - name: Download remote tfstate from S3
-#         run: |
-#           aws s3 cp s3://vj-test-benvolate/EC2/terraform.tfstate tfstate.json
-
-#       - name: Read instance ID from tfstate.json
-#         run: |
-#           INSTANCE_ID=$(jq -r '.outputs.module_instance_id_for_ssm.value' tfstate.json)
-#           echo "Resolved from tfstate: $INSTANCE_ID"
-#           echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
-
-#       - name: Wait for SSM to be ready
-#         run: |
-#           echo "Waiting for EC2 + SSM Agent to initialize..."
-#           sleep 60
-
-#       - name: Verify instance ID from environment
-#         run: |
-#           echo "Instance ID from environment: $INSTANCE_ID"
-#           if [ -z "$INSTANCE_ID" ]; then
-#             echo "Error: INSTANCE_ID is not set. Make sure tfstate.json contains the correct output."
-#             exit 1
-#           fi
-
-
-# #################
-
-#       - name: Check Node.js, PM2, EFS status and wait for result
-#         run: |
-#           CMD_ID=$(aws ssm send-command \
-#             --instance-ids "$INSTANCE_ID" \
-#             --document-name "AWS-RunShellScript" \
-#             --parameters 'commands=["node -v", "pm2 list", "df -h | grep efs"]' \
-#             --comment "Check Node.js, PM2, and EFS status" \
-#             --region ${{ env.AWS_REGION }} \
-#             --query "Command.CommandId" \
-#             --output text)
-
-#           echo "SSM command sent: $CMD_ID"
-          
-#           for i in {1..20}; do
-#             STATUS=$(aws ssm get-command-invocation \
-#               --command-id "$CMD_ID" \
-#               --instance-id "$INSTANCE_ID" \
-#               --region ${{ env.AWS_REGION }} \
-#               --query "Status" \
-#               --output text)
-              
-#             echo "Command status: $STATUS"
-
-#             if [[ "$STATUS" == "Success" ]]; then
-#               aws ssm get-command-invocation \
-#                 --command-id "$CMD_ID" \
-#                 --instance-id "$INSTANCE_ID" \
-#                 --region ${{ env.AWS_REGION }} \
-#                 --output text
-#               break
-#             elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
-#               echo "❌ Command failed or cancelled"
-#               exit 1
-#             fi
-            
-#             echo "Waiting for 5 seconds..."
-#             sleep 5
-#           done
-
-#       - name: Verify EFS directory contents and wait for result
-#         run: |
-#           CMD_ID=$(aws ssm send-command \
-#             --instance-ids "$INSTANCE_ID" \
-#             --document-name "AWS-RunShellScript" \
-#             --parameters 'commands=["ls -l /mnt/efs/code/nodejs-app", "cat /mnt/efs/code/nodejs-app/.env"]' \
-#             --comment "Check app deployment and env file" \
-#             --region ${{ env.AWS_REGION }} \
-#             --query "Command.CommandId" \
-#             --output text)
-
-#           echo "SSM command sent: $CMD_ID"
-
-#           for i in {1..20}; do
-#             STATUS=$(aws ssm get-command-invocation \
-#               --command-id "$CMD_ID" \
-#               --instance-id "$INSTANCE_ID" \
-#               --region ${{ env.AWS_REGION }} \
-#               --query "Status" \
-#               --output text)
-
-#             echo "Command status: $STATUS"
-
-#             if [[ "$STATUS" == "Success" ]]; then
-#               aws ssm get-command-invocation \
-#                 --command-id "$CMD_ID" \
-#                 --instance-id "$INSTANCE_ID" \
-#                 --region ${{ env.AWS_REGION }} \
-#                 --output text
-#               break
-#             elif [[ "$STATUS" == "Failed" || "$STATUS" == "Cancelled" ]]; then
-#               echo "Command failed or cancelled"
-#               exit 1
-#             fi
-
-#             echo "Waiting for 5 seconds..."
-#             sleep 5
-#           done
-      
-      
-#       - name: Install and configure Nginx via SSM
-#         run: |
-#           CMD_ID=$(aws ssm send-command \
-#             --instance-ids "$INSTANCE_ID" \
-#             --document-name "AWS-RunShellScript" \
-#             --parameters 'commands=[
-#               "sudo yum install -y nginx",
-#               "sudo systemctl enable nginx",
-#               "sudo systemctl start nginx",
-#               "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<EOF\nserver {\n    listen 80;\n    server_name _;\n    location / {\n        proxy_pass http://localhost:3000;\n        proxy_http_version 1.1;\n        proxy_set_header Upgrade \$http_upgrade;\n        proxy_set_header Connection 'upgrade';\n        proxy_set_header Host \$host;\n        proxy_cache_bypass \$http_upgrade;\n    }\n}\nEOF\"",
-#               "sudo nginx -t && sudo systemctl reload nginx"
-#             ]' \
-#             --comment "Install and configure Nginx as reverse proxy" \
-#             --region ${{ env.AWS_REGION }} \
-#             --query "Command.CommandId" \
-#             --output text)
-
-#           echo "Nginx SSM install command: $CMD_ID"
-
-#           for i in {1..12}; do
-#             STATUS=$(aws ssm get-command-invocation \
-#               --command-id "$CMD_ID" \
-#               --instance-id "$INSTANCE_ID" \
-#               --region ${{ env.AWS_REGION }} \
-#               --query "Status" \
-#               --output text)
-
-#             echo "Command status: $STATUS"
-
-#             if [[ "$STATUS" == "Success" ]]; then
-#               echo "✅ Nginx installed and configured."
-#               break
-#             elif [[ "$STATUS" == "Failed" ]]; then
-#               echo "❌ Nginx installation failed"
-#               exit 1
-#             fi
-#             sleep 5
-#           done
-
-#       - name: Start Node.js app using node and verify
-#         run: |
-#           CMD_ID=$(aws ssm send-command \
-#             --instance-ids "$INSTANCE_ID" \
-#             --document-name "AWS-RunShellScript" \
-#             --parameters 'commands=[
-#               "cd /mnt/efs/code/nodejs-app",
-#               "npm install || echo NPM_INSTALL_FAILED=true",
-#               "nohup node index.js > /mnt/efs/logs/app.log 2>&1 & echo $! > app.pid || echo NODE_START_FAILED=true",
-#               "sleep 5",
-#               "ps aux | grep node || echo NODE_PROCESS_NOT_FOUND",
-#               "tail -n 30 /mnt/efs/logs/app.log || echo APP_LOGS_NOT_FOUND",
-#               "cat /mnt/efs/logs/init.log || echo INIT_LOG_NOT_FOUND"
-#             ]' \
-#             --comment "Start Node.js app without PM2 and analyze logs" \
-#             --region ${{ env.AWS_REGION }} \
-#             --query "Command.CommandId" \
-#             --output text)
-
-#           echo "Sent node start command: $CMD_ID"
-
-#           for i in {1..12}; do
-#             STATUS=$(aws ssm get-command-invocation \
-#               --command-id "$CMD_ID" \
-#               --instance-id "$INSTANCE_ID" \
-#               --region ${{ env.AWS_REGION }} \
-#               --query "Status" \
-#               --output text)
-            
-#             echo "Command status: $STATUS"
-
-#             if [[ "$STATUS" == "Success" ]]; then
-#               aws ssm get-command-invocation \
-#                 --command-id "$CMD_ID" \
-#                 --instance-id "$INSTANCE_ID" \
-#                 --region ${{ env.AWS_REGION }} \
-#                 --output text
-#               break
-#             elif [[ "$STATUS" == "Failed" ]]; then
-#               echo "❌ Node app launch or logging failed"
-#               exit 1
-#             fi
-#             sleep 5
-#           done
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-##########################
-name: Terraform EFS Deployment
-
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
-env:
-  TF_STATE_BUCKET: vj-test-benvolate
-  TF_STATE_KEY: "EC2/terraform.tfstate"     # Network EFS EC2
+  TF_STATE_KEY: "EC2/terraform.tfstate"     # Network EFS EC2 Load Balancer
   AWS_REGION: us-east-2
   ZIP_NAME: nodejs-app.zip
   ZIP_S3_KEY: nodejs/nodejs-app.zip 
@@ -298,7 +30,7 @@ jobs:
       - name: Checkout Node.js App Code (ensure latest commit)
         uses: actions/checkout@v3
         with:
-          ref: main  # Changed from 'nodejs' to 'main'
+          ref: main
 
       - name: Confirm index.js has updated text
         run: grep 'Hello' Nodejs/index.js
@@ -323,6 +55,7 @@ jobs:
         with:
           terraform_version: 1.5.0
 
+
       - name: Verify AWS Access
         run: aws sts get-caller-identity
 
@@ -333,122 +66,156 @@ jobs:
             -backend-config="key=${{ env.TF_STATE_KEY }}" \
             -backend-config="region=${{ env.AWS_REGION }}" \
             -backend-config="encrypt=true"
-        working-directory: ./terraform/code/EC2    # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2 Load Balancer
 
       - name: Terraform Plan
         run: terraform plan -input=false -out=tfplan
-        working-directory: ./terraform/code/EC2     # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2 Load Balancer
 
       # - name: Terraform Destroy
       #   run: terraform destroy -auto-approve
-      #   working-directory: ./terraform/code/Network     # Network EFS EC2
+      #   working-directory: ./terraform/code/EC2              # Network EFS EC2 Load Balancer
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
-        working-directory: ./terraform/code/EC2     # Network EFS EC2
+        working-directory: ./terraform/code/EC2                 # Network EFS EC2 Load Balancer
 
-
-      # === 6. Extract EC2 Instance ID from tfstate ===
+      # === Extract EC2 Instance IDs from tfstate ===
       - name: Download remote tfstate from S3
         run: aws s3 cp s3://${{ env.TF_STATE_BUCKET }}/${{ env.TF_STATE_KEY }} tfstate.json
 
-      - name: Read instance ID from tfstate.json
+      - name: Extract all instance IDs from tfstate
         run: |
-          INSTANCE_ID=$(jq -r '.outputs.module_instance_id_for_ssm.value' tfstate.json)
-          echo "Resolved from tfstate: $INSTANCE_ID"
-          echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
+          # Extract all instance IDs using the module output pattern
+          INSTANCE_IDS=$(jq -r '.outputs | with_entries(select(.key | startswith("module_instance_"))) | .[] | .value' tfstate.json 2>/dev/null || echo "")
+          
+          # If we still don't have any, try fallbacks
+          if [ -z "$INSTANCE_IDS" ]; then
+            # Try other common patterns
+            INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
+          fi
+          
+          # Make sure we have IDs
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "Error: Could not find any instance IDs in the Terraform state"
+            exit 1
+          fi
+          
+          # Convert to array and display
+          INSTANCE_IDS_ARRAY=($INSTANCE_IDS)
+          echo "Found ${#INSTANCE_IDS_ARRAY[@]} instance IDs: $INSTANCE_IDS"
+          
+          # Format the instance IDs as a space-separated string for environment variable
+          INSTANCE_IDS_SPACE_SEPARATED=$(echo "$INSTANCE_IDS" | tr '\n' ' ')
+          echo "INSTANCE_IDS=$INSTANCE_IDS_SPACE_SEPARATED" >> $GITHUB_ENV
 
       - name: Wait for SSM to be ready
         run: |
-          echo "Waiting for EC2 + SSM Agent to initialize..."
+          echo "Waiting for EC2 instances to be fully initialized..."
           sleep 60
 
-      # === 7. Install Node App from S3 to EFS and Start with PM2 ===
-      - name: Deploy & Restart Node.js App with Zero Downtime
+      # === Deploy & Restart Node.js App to all instances ===
+      - name: Deploy & Restart Node.js App to all instances
         run: |
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "curl -o /tmp/node-deploy.sh https://vj-test-benvolate.s3.us-east-2.amazonaws.com/scripts/node-deploy.sh",
-              "chmod +x /tmp/node-deploy.sh",
-              "bash /tmp/node-deploy.sh"
-            ]' \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" \
-            --output text)
-
-          echo "SSM command sent: $CMD_ID"
-
-          for i in {1..30}; do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$CMD_ID" \
-              --instance-id "$INSTANCE_ID" \
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Deploying to instance: $INSTANCE_ID"
+            
+            CMD_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "curl -o /tmp/node-deploy.sh https://vj-test-benvolate.s3.us-east-2.amazonaws.com/scripts/node-deploy.sh",
+                "chmod +x /tmp/node-deploy.sh",
+                "bash /tmp/node-deploy.sh"
+              ]' \
               --region ${{ env.AWS_REGION }} \
-              --query "Status" \
-              --output text 2>/dev/null || echo "Pending")
+              --query "Command.CommandId" \
+              --output text)
 
-            echo "Command status: $STATUS"
+            echo "SSM command sent to $INSTANCE_ID: $CMD_ID"
 
-            if [[ "$STATUS" == "Success" ]]; then
-              echo "✅ App deployed and restarted successfully."
-              break
-            elif [[ "$STATUS" == "Failed" ]]; then
-              echo "❌ Deployment failed"
-              aws ssm get-command-invocation \
+            # Wait for command to complete
+            for i in {1..30}; do
+              STATUS=$(aws ssm get-command-invocation \
                 --command-id "$CMD_ID" \
                 --instance-id "$INSTANCE_ID" \
-                --region ${{ env.AWS_REGION }}
-              exit 1
-            fi
+                --region ${{ env.AWS_REGION }} \
+                --query "Status" \
+                --output text 2>/dev/null || echo "Pending")
 
-            sleep 10
+              echo "Command status for $INSTANCE_ID: $STATUS"
+
+              if [[ "$STATUS" == "Success" ]]; then
+                echo "App deployed and restarted successfully on $INSTANCE_ID."
+                break
+              elif [[ "$STATUS" == "Failed" ]]; then
+                echo "Deployment failed on $INSTANCE_ID"
+                aws ssm get-command-invocation \
+                  --command-id "$CMD_ID" \
+                  --instance-id "$INSTANCE_ID" \
+                  --region ${{ env.AWS_REGION }}
+                break
+              fi
+
+              if [[ $i -eq 30 ]]; then
+                echo "Deployment timed out on $INSTANCE_ID"
+              fi
+
+              sleep 10
+            done
           done
 
-      - name: Configure Nginx reverse proxy for Node.js
+      # === Configure Nginx on all instances ===
+      - name: Configure Nginx on all instances
         run: |
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "sudo bash -c \\\"cat > /etc/nginx/conf.d/nodeapp.conf <<EOF",
-              "server {",
-              "  listen 80;",
-              "  server_name _;",
-              "  location / {",
-              "    proxy_pass http://localhost:3000;",
-              "    proxy_http_version 1.1;",
-              "    proxy_set_header Upgrade \\\\$http_upgrade;",
-              "    proxy_set_header Connection '\''upgrade'\''\\;",
-              "    proxy_set_header Host \\\\$host;",
-              "    proxy_cache_bypass \\\\$http_upgrade;",
-              "  }",
-              "}",
-              "EOF\\\"",
-              "sudo rm -f /etc/nginx/conf.d/default.conf",
-              "sudo nginx -t && sudo systemctl reload nginx"
-            ]' \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" \
-            --output text)
+          for INSTANCE_ID in $INSTANCE_IDS; do
+            echo "Configuring Nginx on instance: $INSTANCE_ID"
+            
+            CMD_ID=$(aws ssm send-command \
+              --instance-ids "$INSTANCE_ID" \
+              --document-name "AWS-RunShellScript" \
+              --parameters 'commands=[
+                "sudo yum install -y nginx",
+                "sudo systemctl enable nginx",
+                "sudo systemctl start nginx",
+                "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'\''CONFIG'\''\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection '\''upgrade'\'';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
+                "sudo rm -f /etc/nginx/conf.d/default.conf",
+                "sudo nginx -t && sudo systemctl reload nginx"
+              ]' \
+              --region ${{ env.AWS_REGION }} \
+              --query "Command.CommandId" \
+              --output text)
 
-          echo "Nginx config applied: $CMD_ID"
+            echo "Nginx configuration sent to $INSTANCE_ID: $CMD_ID"
+            
+            # Wait for Nginx configuration to complete
+            for i in {1..10}; do
+              STATUS=$(aws ssm get-command-invocation \
+                --command-id "$CMD_ID" \
+                --instance-id "$INSTANCE_ID" \
+                --region ${{ env.AWS_REGION }} \
+                --query "Status" \
+                --output text 2>/dev/null || echo "Pending")
 
-      # === 8. Configure Nginx (Optional If Already Done) ===
-      - name: Install and configure Nginx via SSM
+              echo "Nginx config status for $INSTANCE_ID: $STATUS"
+
+              if [[ "$STATUS" == "Success" ]]; then
+                echo "Nginx configured successfully on $INSTANCE_ID."
+                break
+              elif [[ "$STATUS" == "Failed" ]]; then
+                echo "Nginx configuration failed on $INSTANCE_ID"
+                break
+              fi
+
+              sleep 5
+            done
+          done
+
+      - name: Print Summary
         run: |
-          CMD_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "sudo yum install -y nginx",
-              "sudo systemctl enable nginx",
-              "sudo systemctl start nginx",
-              "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'\''CONFIG'\''\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection '\''upgrade'\'';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
-              "sudo nginx -t && sudo systemctl reload nginx"
-            ]' \
-            --region ${{ env.AWS_REGION }} \
-            --query "Command.CommandId" \
-            --output text)
-
-          echo "Nginx configured on EC2."
+          echo "====== Deployment Summary ======"
+          echo "Total EC2 instances processed: $(echo $INSTANCE_IDS | wc -w)"
+          echo "Deployed Node.js app with timestamp functionality to all instances"
+          echo "Configured Nginx as a reverse proxy on all instances"
+          echo "Each server will now display: Hello, World! - VJ [Day] [Time] - Server: [hostname]"
+          echo "==============================="
