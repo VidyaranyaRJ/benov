@@ -7,7 +7,7 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: EFS                               # Network EFS EC2 Load Balancer
+  MODULE: EC2                              # Network EFS EC2 Load Balancer
 
 jobs:
   deploy:
@@ -31,5 +31,5 @@ jobs:
 
       - name: Run deploy.sh for ${{ env.MODULE }}
         run: |
-          echo "🚀 Deploying $MODULE"
+          echo "Deploying $MODULE"
           bash terraform/code/${{ env.MODULE }}/deploy.sh
