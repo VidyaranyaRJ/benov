@@ -7,7 +7,7 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: EC2                              # Network EFS EC2 Load Balancer
+  MODULE: Load Balancer                              # Network EFS EC2 Load Balancer
 
 jobs:
   deploy:
