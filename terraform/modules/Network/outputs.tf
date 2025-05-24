@@ -9,11 +9,9 @@ output "module_subnet_id" {
   value = module.network.subnet_ids
 }
 
-output "module_subnet_id_1" {
-  value = module.network.subnet_ids[0]
+output "first_subnet_id" {
+  value = values(module.network.subnet_ids)[0]
 }
-
-
 
 # output "module_security_group_id" {
 #   value = module.network.security_group_id
