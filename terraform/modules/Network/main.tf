@@ -17,7 +17,7 @@ locals {
 }
 
 module "network" {
-  source                    = "../../resources/Network/benevolate_application_vpc"
+  source                    = "../../resources/Network/benevolate_application/vpc"
 
   #### VPC ####
   vpc_tags                  = local.tag_name
@@ -25,12 +25,12 @@ module "network" {
   vpc_enable_dns_support    = true
   vpc_enable_dns_hostnames  = true
 
-  #### Subnets ####
-  subnets = {
-    Benevolate-subnet-load-balancer-1  = { subnet_cidr = "10.0.1.0/24", subnet_availability_zone = "us-east-2a", subnet_public = true }
-    Benevolate-subnet-load-balancer-2  = { subnet_cidr = "10.0.2.0/24", subnet_availability_zone = "us-east-2b", subnet_public = true }
-    Benevolate-subnet-application-1    = { subnet_cidr = "10.0.3.0/24", subnet_availability_zone = "us-east-2a", subnet_public = false }
-  }
+  # #### Subnets ####
+  # subnets = {
+  #   Benevolate-subnet-load-balancer-1  = { subnet_cidr = "10.0.1.0/24", subnet_availability_zone = "us-east-2a", subnet_public = true }
+  #   Benevolate-subnet-load-balancer-2  = { subnet_cidr = "10.0.2.0/24", subnet_availability_zone = "us-east-2b", subnet_public = true }
+  #   Benevolate-subnet-application-1    = { subnet_cidr = "10.0.3.0/24", subnet_availability_zone = "us-east-2a", subnet_public = false }
+  # }
   
   #### NAT Gateway ####
   # public_subnet_id_nat_gateway = module.network.subnet_ids["Benevolate-subnet-load-balancer-1"]
