@@ -21,4 +21,4 @@ terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan
 # terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
 
 # === Destroy resources ===
-terraform destroy -auto-approve
+terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve
