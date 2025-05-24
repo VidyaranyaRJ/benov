@@ -14,7 +14,7 @@ resource "aws_vpc" "benevolate_vpc" {
 
                 ## Public ##
 
-resource "aws_subnet" "benevolate_public_subnet" {
+resource "aws_subnet" "benevolate_subnet" {
   for_each = var.subnets
 
   vpc_id     = aws_vpc.benevolate_vpc.id
