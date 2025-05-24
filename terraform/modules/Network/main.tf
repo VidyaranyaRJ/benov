@@ -16,7 +16,7 @@ locals {
 
 }
 
-module "network" {
+module "benevolate_vpc" {
   source                    = "../../resources/Network/benevolate_application/vpc"
 
   #### VPC ####
