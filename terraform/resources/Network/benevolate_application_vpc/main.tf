@@ -12,8 +12,6 @@ resource "aws_vpc" "benevolate_vpc" {
 
 ################## Subnet ##################
 
-                ## Public ##
-
 resource "aws_subnet" "benevolate_subnet" {
   for_each = var.subnets
 
@@ -30,12 +28,42 @@ resource "aws_subnet" "benevolate_subnet" {
 
 
 
-# ##############
+# ################## Internet Gateway ##################
 
-# resource "aws_internet_gateway" "my_gateway" {
-#   vpc_id = aws_vpc.my_vpc.id
-#   depends_on = [  aws_vpc.my_vpc ]
+# resource "aws_internet_gateway" "benevolate_internet_gateway" {
+#   vpc_id = aws_vpc.benevolate_vpc.id
+#   depends_on = [  aws_vpc.benevolate_vpc ]
 # }
+
+
+# ################## NAT Gateway ##################
+
+#          ## Elastic IP for NAT Gateway ##
+
+# resource "aws_eip" "benevolate_eip" {
+#   domain = "vpc"
+#   depends_on                = [aws_internet_gateway.benevolate_internet_gateway]
+# }
+
+#           ## NAT Gateway ##
+
+# resource "aws_nat_gateway" "benevolate_nat_gateway" {
+#   allocation_id = aws_eip.benevolate_eip.id
+#   subnet_id     = var.public_subnet_id_nat_gateway
+
+#   tags = {
+#     Name = var.tag_name_nat_gateway
+#   }
+
+#   depends_on = [aws_eip.benevolate_eip, aws_subnet.benevolate_subnet]
+# }
+         
+
+
+
+
+
+
 
 
 # resource "aws_route_table" "my_route_table" {
