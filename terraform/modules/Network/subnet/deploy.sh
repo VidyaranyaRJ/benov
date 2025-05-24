@@ -3,7 +3,7 @@ set -e
 
 # === Configuration ===
 TF_STATE_BUCKET="vj-test-benvolate"
-TF_STATE_KEY="Network/terraform.tfstate"
+TF_STATE_KEY="Network/subnet/terraform.tfstate"
 AWS_REGION="us-east-2"
 TERRAFORM_DIR="$(dirname "$0")"
 
