@@ -24,7 +24,7 @@ data "terraform_remote_state" "subnet" {
   backend = "s3"
   config = {
     bucket = "vj-test-benvolate"
-    key    = "Network/gateway/terraform.tfstate"
+    key    = "Network/subnet/terraform.tfstate"
     region = "us-east-2"
   }
 }
