@@ -1,7 +1,8 @@
 ################## Internet Gateway ##################
 
 resource "aws_internet_gateway" "benevolate_internet_gateway" {
-  vpc_id = aws_vpc.benevolate_vpc.id
+  vpc_id = var.vpc_id
+  
 }
 
 
@@ -11,6 +12,7 @@ resource "aws_internet_gateway" "benevolate_internet_gateway" {
 
 resource "aws_eip" "benevolate_eip" {
   domain = "vpc"
+  depends_on = [  aws_internet_gateway.benevolate_internet_gateway ]
 }
 
           ## NAT Gateway ##
@@ -22,6 +24,7 @@ resource "aws_nat_gateway" "benevolate_nat_gateway" {
   tags = {
     Name = var.tag_name_nat_gateway
   }
+  depends_on = [  aws_eip.benevolate_eip ]
 
 }
          
