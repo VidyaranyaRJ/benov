@@ -29,7 +29,7 @@ aws s3 cp scripts/node-deploy.sh s3://$TF_STATE_BUCKET/scripts/node-deploy.sh --
 
 # ==== Terraform EC2 ====
 echo "📐 Terraform Init & Apply for EC2..."
-cd terraform/code/EC2
+cd terraform/modules/EC2
 terraform init \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="key=$EC2_TFSTATE_KEY" \

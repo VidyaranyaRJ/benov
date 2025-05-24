@@ -32,4 +32,4 @@ jobs:
       - name: Run deploy.sh for ${{ env.MODULE }}
         run: |
           echo "Deploying $MODULE"
-          bash terraform/code/${{ env.MODULE }}/deploy.sh
+          bash terraform/modules/${{ env.MODULE }}/deploy.sh
