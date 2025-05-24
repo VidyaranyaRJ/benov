@@ -7,9 +7,10 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: Network/vpc                
+  MODULE: Network/subnet                
 
- # Network/vpc  
+ # Network/vpc
+ # Network/subnet
  #EFS 
  #EC2 
  #Load_Balancer
