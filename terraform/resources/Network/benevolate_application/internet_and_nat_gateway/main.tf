@@ -2,7 +2,9 @@
 
 resource "aws_internet_gateway" "benevolate_internet_gateway" {
   vpc_id = var.vpc_id
-  
+  tags = {
+    Name = var.tag_name_internet_gateway
+  }
 }
 
 

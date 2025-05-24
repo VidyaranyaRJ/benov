@@ -13,7 +13,9 @@ variable "vpc_id" {
 }
 
 
-
+variable "tag_name_internet_gateway" {
+  type        = string
+}
 
 
 
