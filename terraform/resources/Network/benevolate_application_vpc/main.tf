@@ -25,7 +25,7 @@ resource "aws_subnet" "benevolate_public_subnet" {
     Name = each.key
     Type = each.value.subnet_public ? "public" : "private"
   }
-  depends_on = [  aws_vpc.my_vpc ]
+  depends_on = [  aws_vpc.benevolate_vpc ]
 }
 
 
