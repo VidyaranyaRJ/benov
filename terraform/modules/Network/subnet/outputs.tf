@@ -1,6 +1,6 @@
 ##### SUBNET #####
 output "module_subnet_id" {
-  value = module.network.subnet_ids
+  value = module.benevolate_subnet.subnet_ids
 }
 
 # output "first_subnet_id" {
