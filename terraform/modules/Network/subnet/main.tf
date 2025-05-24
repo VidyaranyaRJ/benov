@@ -20,7 +20,7 @@ data "terraform_remote_state" "network" {
 ##### SUBNET #####
 
 module "benevolate_subnet" {
-  source                    = "../../resources/Network/benevolate_application/subnet"
+  source                    = "../../../resources/Network/benevolate_application/subnet"
 
   #### Subnets ####
   vpc_id = data.terraform_remote_state.network.outputs.module_vpc_id
