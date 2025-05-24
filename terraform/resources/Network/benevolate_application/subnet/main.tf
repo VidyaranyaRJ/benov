@@ -1,21 +1,9 @@
-################## VPC ##################
-
-resource "aws_vpc" "benevolate_vpc" { 
-  cidr_block = var.vpc_cidr_block
-  enable_dns_support = var.vpc_enable_dns_support 
-  enable_dns_hostnames = var.vpc_enable_dns_hostnames
-  tags = {
-    Name = var.vpc_tags 
-  }
-}
-
-
 ################## Subnet ##################
 
 resource "aws_subnet" "benevolate_subnet" {
   for_each = var.subnets
 
-  vpc_id     = aws_vpc.benevolate_vpc.id
+  vpc_id     = var.vpc_id
   cidr_block = each.value.subnet_cidr
   availability_zone = each.value.subnet_availability_zone
   map_public_ip_on_launch = each.value.subnet_public
@@ -23,7 +11,6 @@ resource "aws_subnet" "benevolate_subnet" {
     Name = each.key
     Type = each.value.subnet_public ? "public" : "private"
   }
-  depends_on = [  aws_vpc.benevolate_vpc ]
 }
 
 
