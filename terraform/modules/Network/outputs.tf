@@ -1,15 +1,19 @@
-output "subnet_id" {
-  value = aws_subnet.my_subnet.id
+output "module_subnet_id" {
+  value = module.network.subnet_id
 }
 
-output "subnet_id_2" {
-  value = aws_subnet.my_subnet_2.id
+output "module_subnet_id_2" {
+  value = module.network.subnet_id_2
 }
 
-output "security_group_id" {
-  value = aws_security_group.ecs_security_group.id
+
+output "module_security_group_id" {
+  value = module.network.security_group_id
 }
 
-output "vpc_id" {
-  value = aws_vpc.my_vpc.id
+
+output "module_vpc_id" {
+  value = module.network.vpc_id
 }
+
+

@@ -1,46 +1,22 @@
+variable "region" {
+  type        = string
+}
+
+# variable "ami" {
+#   type        = string
+# }
+
+variable "instance_type" {
+  type        = string
+}
+
 variable "sg_name" {
-  type = string
-  default = "ecs_sg"
-}
-
-variable "subnet" {
-  type = string
-  description = "Subnet ID to launch instances"
-}
-
-variable "sg_id" {
-  type = string
-  description = "Security group ID"
+  type        = string
 }
 
 
-variable "ec2_tag_name" {
-  type = string
-  description = "EC2 tag name"
-}
 
-
-variable "efs1_dns_name" {
-  type = string
-  description = "EFS DNS name"
-}
-
-variable "efs2_dns_name" {
-  type = string
-  description = "EFS DNS name"
-}
-
-variable "efs3_dns_name" {
-  type = string
-  description = "EFS DNS name"
-}
-
-
-variable "ami" {
-  type = string
-}
-
-
-variable "host_name" {
-  type = string
-}
+# variable "ec2_tag_name" {
+#   type = string
+#   description = "EC2 tag name"
+# }
