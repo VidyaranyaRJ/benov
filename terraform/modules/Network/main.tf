@@ -1,4 +1,4 @@
-resource "aws_vpc" "my_vpc" {
+resource "aws_vpc" "my_vpc" { #benevolate_vpc
   cidr_block = "10.0.0.0/16"
   enable_dns_support = true
   enable_dns_hostnames = true
@@ -18,6 +18,7 @@ resource "aws_subnet" "my_subnet" {
   }
   depends_on = [  aws_vpc.my_vpc ]
 }
+
 
 
 ###########
