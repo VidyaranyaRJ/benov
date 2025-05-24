@@ -1,36 +1,20 @@
-################## Internet Gateway ##################
+################## Public Route Table ##################
 
-resource "aws_internet_gateway" "benevolate_internet_gateway" {
+# Public Route Table
+resource "aws_route_table" "public_rt" {
   vpc_id = var.vpc_id
-  tags = {
-    Name = var.tag_name_internet_gateway
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = var.internet_gateway_id
   }
 }
 
-################## NAT Gateway ##################
-
-         ## Elastic IP for NAT Gateway ##
-
-resource "aws_eip" "benevolate_eip" {
-  domain = "vpc"
-  depends_on = [  aws_internet_gateway.benevolate_internet_gateway ]
+# Route Table Association: Public Subnet
+resource "aws_route_table_association" "public_assoc" {
+  subnet_id      = var.subnet_id
+  route_table_id = aws_route_table.public_rt.id
 }
-
-          ## NAT Gateway ##
-
-resource "aws_nat_gateway" "benevolate_nat_gateway" {
-  allocation_id = aws_eip.benevolate_eip.id
-  subnet_id     = var.public_subnet_id_nat_gateway
-
-  tags = {
-    Name = var.tag_name_nat_gateway
-  }
-  depends_on = [  aws_eip.benevolate_eip ]
-
-}
-         
-
-
 
 
 

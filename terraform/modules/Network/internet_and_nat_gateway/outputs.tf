@@ -1,15 +1,16 @@
-##### SUBNET #####
-# output "module_subnet_id" {
-#   value = module.benevolate_subnet.subnet_ids
-# }
+##### Internet Gateway #####
 
-# output "first_subnet_id" {
-#   value = values(module.network.subnet_ids)[0]
-# }
+output "module_benevolate_internet_gateway_id" {
+  value = module.benevolate_gateway.benevolate_internet_gateway_id
+}
 
-# output "module_security_group_id" {
-#   value = module.network.security_group_id
-# }
+
+
+
+##### NAT Gateway #####
+output "module_benevolate_nat_gateway_id" {
+  value = module.benevolate_gateway.benevolate_nat_gateway_id
+}
 
 
 
