@@ -7,16 +7,17 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: Load_Balancer                
+  MODULE: IAM                
  # Network/vpc
  # Network/subnet
  # Network/internet_and_nat_gateway
  # Network/route_tables/public
  # Network/route_tables/private
  # Network/security_group
- #EFS 
- #EC2 
- #Load_Balancer
+ # EFS 
+ # IAM
+ # EC2 
+ # Load_Balancer
 
 jobs:
   deploy:
