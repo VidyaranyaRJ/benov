@@ -10,6 +10,7 @@ variable "security_group_name" {
 
 variable "security_group_ingress_rules" {
   type = list(object({
+    description = string
     from_port   = number
     to_port     = number
     protocol    = string
@@ -20,6 +21,7 @@ variable "security_group_ingress_rules" {
 
 variable "security_group_egress_rules" {
   type = list(object({
+    description = string
     from_port   = number
     to_port     = number
     protocol    = string

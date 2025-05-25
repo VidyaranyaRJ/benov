@@ -8,6 +8,7 @@ resource "aws_security_group" "benevolate_security_group" {
   dynamic "ingress" {
     for_each = var.security_group_ingress_rules
     content {
+      description = ingress.value.description
       from_port   = ingress.value.from_port
       to_port     = ingress.value.to_port
       protocol    = ingress.value.protocol
@@ -18,6 +19,7 @@ resource "aws_security_group" "benevolate_security_group" {
   dynamic "egress" {
     for_each = var.security_group_egress_rules
     content {
+      description = egress.value.description
       from_port   = egress.value.from_port
       to_port     = egress.value.to_port
       protocol    = egress.value.protocol
@@ -28,5 +30,5 @@ resource "aws_security_group" "benevolate_security_group" {
   tags = {
     Name = var.security_group_name
   }
-  
+
 }
