@@ -78,7 +78,7 @@ module "load_balancer_1" {
 
   internal                            = false
   load_balancer_type                  = "application"
-  aws_lb_target_group_port            = local.protocol
+  aws_lb_target_group_port            = local.port
   aws_lb_target_group_protocol        = local.protocol
   aws_lb_target_group_attachment_port = local.port
   aws_lb_listener_port                = local.port
