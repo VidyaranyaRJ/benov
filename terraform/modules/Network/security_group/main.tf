@@ -19,7 +19,7 @@ data "terraform_remote_state" "vpc" {
 
 ##### Security Group #####
 
-module "benevolate_subnet" {
+module "benevolate_security_group" {
   source = "../../../resources/Network/benevolate_application/security_group"
 
   security_group_name = "Benevolate-security-group"
