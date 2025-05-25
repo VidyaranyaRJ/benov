@@ -7,7 +7,7 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: Network/route_tables/public                
+  MODULE: Network/security_group                
  # Network/vpc
  # Network/subnet
  # Network/internet_and_nat_gateway
