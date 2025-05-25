@@ -8,6 +8,9 @@ resource "aws_route_table" "benevolate_public_route_table" {
     cidr_block = "0.0.0.0/0"
     gateway_id = var.internet_gateway_id
   }
+  tags = {
+    Name = var.public_route_table_tag_name
+  }
 }
 
 # Route Table Association: Public Subnet

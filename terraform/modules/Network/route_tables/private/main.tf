@@ -39,8 +39,6 @@ data "terraform_remote_state" "gateway" {
 }
 
 
-
-
 ##### SUBNET #####
 
 module "benevolate_private_route_table" {
@@ -50,7 +48,7 @@ module "benevolate_private_route_table" {
   vpc_id = data.terraform_remote_state.vpc.outputs.module_vpc_id
   nat_gateway_id = data.terraform_remote_state.gateway.outputs.module_benevolate_nat_gateway_id
   private_subnet_id = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-
+  private_route_table_tag_name = "Benevolate-private-route-table"
 
   # sg_name = local.sg_name
   

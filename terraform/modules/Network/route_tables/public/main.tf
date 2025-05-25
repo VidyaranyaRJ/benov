@@ -48,7 +48,7 @@ module "benevolate_private_route_table" {
   vpc_id = data.terraform_remote_state.vpc.outputs.module_vpc_id
   internet_gateway_id = data.terraform_remote_state.gateway.outputs.module_benevolate_internet_gateway_id
   public_subnet_id = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
-
+  public_route_table_tag_name = "Benevolate-public-route-table"
 
   # sg_name = local.sg_name
   

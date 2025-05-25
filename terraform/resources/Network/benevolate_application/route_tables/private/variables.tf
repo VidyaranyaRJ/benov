@@ -11,7 +11,9 @@ variable "private_subnet_id" {
   type        = string
 }
 
-
+variable "private_route_table_tag_name" {
+  type        = string
+}
 
 
 

@@ -8,6 +8,10 @@ resource "aws_route_table" "benevolate_private_route_table" {
     cidr_block     = "0.0.0.0/0"
     nat_gateway_id = var.nat_gateway_id
   }
+
+  tags = {
+    Name = var.private_route_table_tag_name
+  }
 }
 
 # Route Table Association: Private Subnet
