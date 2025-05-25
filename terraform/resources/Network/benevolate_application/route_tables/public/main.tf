@@ -1,7 +1,7 @@
 ################## Public Route Table ##################
 
 # Public Route Table
-resource "aws_route_table" "public_rt" {
+resource "aws_route_table" "benevolate_public_route_table" {
   vpc_id = var.vpc_id
 
   route {
@@ -11,30 +11,13 @@ resource "aws_route_table" "public_rt" {
 }
 
 # Route Table Association: Public Subnet
-resource "aws_route_table_association" "public_assoc" {
-  subnet_id      = var.subnet_id
-  route_table_id = aws_route_table.public_rt.id
+resource "aws_route_table_association" "benevolate_public_route_table_association" {
+  subnet_id      = var.public_subnet_id
+  route_table_id = aws_route_table.benevolate_public_route_table.id
 }
 
 
 
-
-
-
-# resource "aws_route_table" "my_route_table" {
-#   vpc_id = aws_vpc.my_vpc.id
-
-#   route {
-#     cidr_block = "0.0.0.0/0"
-#     gateway_id = aws_internet_gateway.my_gateway.id
-#   }
-#   depends_on = [  aws_vpc.my_vpc, aws_internet_gateway.my_gateway ]
-# }
-
-# resource "aws_route_table_association" "public_association" {
-#   subnet_id      = aws_subnet.my_subnet.id
-#   route_table_id = aws_route_table.my_route_table.id
-# }
 
 
 # resource "aws_security_group" "ecs_security_group" {
