@@ -24,6 +24,12 @@ resource "aws_lb_target_group" "benevolate_application_target_group" {
   protocol = var.aws_lb_target_group_protocol
   vpc_id   = var.vpc_id
 
+  stickiness {
+    type            = var.type
+    enabled         = var.stickiness_enabled
+    cookie_duration = var.stickiness_cookie_duration
+  }
+
   dynamic "health_check" {
     for_each = var.aws_lb_target_group_health_check_config != null ? [var.aws_lb_target_group_health_check_config] : [local.default_health_check]
 

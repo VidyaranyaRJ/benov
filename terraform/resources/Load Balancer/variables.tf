@@ -63,3 +63,15 @@ variable "aws_lb_target_group_health_check_config" {
   default = null
 }
 
+
+variable "stickiness_enabled" {
+  type = bool
+}
+
+variable "stickiness_cookie_duration" {
+  type = number
+}
+
+variable "type" {
+  type = string
+}

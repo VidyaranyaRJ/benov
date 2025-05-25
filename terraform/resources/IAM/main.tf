@@ -1,5 +1,5 @@
 resource "aws_iam_role" "benevolate_ec2_ssm_role" {
-  name = var.iam_role_name
+  name               = var.iam_role_name
   assume_role_policy = jsonencode(var.assume_role_policy_json)
 }
 

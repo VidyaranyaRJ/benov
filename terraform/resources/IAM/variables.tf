@@ -1,5 +1,5 @@
 variable "iam_role_name" {
-  type    = string
+  type = string
 }
 
 variable "assume_role_policy_json" {
