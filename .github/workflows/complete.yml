@@ -13,6 +13,7 @@ env:
  # Network/internet_and_nat_gateway
  # Network/route_tables/public
  # Network/route_tables/private
+ # Network/security_group
  #EFS 
  #EC2 
  #Load_Balancer
