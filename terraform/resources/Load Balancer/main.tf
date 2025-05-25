@@ -57,4 +57,7 @@ resource "aws_lb_listener" "http" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.benevolate_application_target_group.arn
   }
+  depends_on = [
+    aws_lb_target_group_attachment.tg_attachments
+  ]
 }
