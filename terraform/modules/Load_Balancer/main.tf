@@ -65,7 +65,7 @@ module "load_balancer_1" {
   security_group_id  = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   ec2_instance_ids = [
     data.terraform_remote_state.ec2.outputs.module_instance_1_id
-    # data.terraform_remote_state.ec2.outputs.module_instance_2_id_for_ssm,
+    data.terraform_remote_state.ec2.outputs.module_instance_2_id_for_ssm,
     # data.terraform_remote_state.ec2.outputs.module_instance_3_id_for_ssm,
     # data.terraform_remote_state.ec2.outputs.module_instance_4_id_for_ssm,
     # data.terraform_remote_state.ec2.outputs.module_instance_5_id_for_ssm
