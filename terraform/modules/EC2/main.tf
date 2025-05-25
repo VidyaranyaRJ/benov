@@ -9,11 +9,21 @@ terraform {
 
 ###################### Data ###############################
 
-data "terraform_remote_state" "network" {
+data "terraform_remote_state" "subnet" {
   backend = "s3"
   config = {
     bucket = "vj-test-benvolate"
-    key    = "Network/terraform.tfstate"
+    key    = "Network/subnet/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+
+data "terraform_remote_state" "security_group" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/security_group/terraform.tfstate"
     region = "us-east-2"
   }
 }
@@ -27,6 +37,7 @@ data "terraform_remote_state" "efs" {
     region = "us-east-2"
   }
 }
+
 
 
 ###################### Locals ###############################
@@ -48,14 +59,13 @@ locals {
 
 }
 
-
 ###################### Module ###############################
 
-module "Instance_1" {
-  source        = "../../modules/EC2"
+module "instance_1" {
+  source        = "../../resources/EC2"
   ami           = local.ami
-  subnet        = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id         = data.terraform_remote_state.network.outputs.module_security_group_id
+  subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   ec2_tag_name  = local.ec2_tag_name_tag1
   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
@@ -64,53 +74,53 @@ module "Instance_1" {
 }
 
 
-# module "Instance_2" {
-#   source                                 = "../../modules/EC2"
-#   ami = local.ami
-#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag2
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   host_name = local.hostname_instance_2
-# }
+module "instance_2" {
+  source                                 = "../../resources/EC2"
+  ami = local.ami
+  subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  ec2_tag_name = local.ec2_tag_name_tag2
+  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+  host_name = local.hostname_instance_2
+}
 
 
-# module "Instance_3" {
-#   source                                 = "../../modules/EC2"
-#   ami = local.ami
-#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag3
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   host_name = local.hostname_instance_3
-# }
+module "instance_3" {
+  source                                 = "../../resources/EC2"
+  ami = local.ami
+  subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  ec2_tag_name = local.ec2_tag_name_tag3
+  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+  host_name = local.hostname_instance_3
+}
 
 
-# module "Instance_4" {
-#   source                                 = "../../modules/EC2"
-#   ami = local.ami
-#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag4
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   host_name = local.hostname_instance_4
-# }
+module "instance_4" {
+  source                                 = "../../resources/EC2"
+  ami = local.ami
+  subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  ec2_tag_name = local.ec2_tag_name_tag4
+  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+  host_name = local.hostname_instance_4
+}
 
 
-# module "Instance_5" {
-#   source                                 = "../../modules/EC2"
-#   ami = local.ami
-#   subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-#   sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag5
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   host_name = local.hostname_instance_5
-# }
+module "instance_5" {
+  source                                 = "../../resources/EC2"
+  ami = local.ami
+  subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  ec2_tag_name = local.ec2_tag_name_tag5
+  efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
+  efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
+  efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
+  host_name = local.hostname_instance_5
+}
