@@ -1,5 +1,5 @@
 variable "region" {
-  type        = string
+  type = string
 }
 
 # variable "ami" {
@@ -7,11 +7,11 @@ variable "region" {
 # }
 
 variable "instance_type" {
-  type        = string
+  type = string
 }
 
 variable "sg_name" {
-  type        = string
+  type = string
 }
 
 

@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "vj-test-benvolate"  
-    key            = "terraform.tfstate"  
-    region         = "us-east-2" 
-    encrypt        = true
+    bucket  = "vj-test-benvolate"
+    key     = "terraform.tfstate"
+    region  = "us-east-2"
+    encrypt = true
   }
 }
 
@@ -19,8 +19,8 @@ data "terraform_remote_state" "vpc" {
 
 ##### Security Group #####
 
-module "benevolate_subnet" {
-  source                    = "../../../resources/Network/benevolate_application/security_group"
+module "benevolate_security_group" {
+  source = "../../../resources/Network/benevolate_application/security_group"
 
   security_group_name = "Benevolate-security-group"
   vpc_id              = data.terraform_remote_state.vpc.outputs.module_vpc_id

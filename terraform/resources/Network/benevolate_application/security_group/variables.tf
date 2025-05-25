@@ -1,10 +1,10 @@
 ###################################### Security Group ######################################
 variable "vpc_id" {
-  type        = string
+  type = string
 }
 
 variable "security_group_name" {
-  type        = string
+  type = string
 }
 
 

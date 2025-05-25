@@ -9,14 +9,14 @@ resource "aws_internet_gateway" "benevolate_internet_gateway" {
 
 ################## NAT Gateway ##################
 
-         ## Elastic IP for NAT Gateway ##
+## Elastic IP for NAT Gateway ##
 
 resource "aws_eip" "benevolate_eip" {
-  domain = "vpc"
-  depends_on = [  aws_internet_gateway.benevolate_internet_gateway ]
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.benevolate_internet_gateway]
 }
 
-          ## NAT Gateway ##
+## NAT Gateway ##
 
 resource "aws_nat_gateway" "benevolate_nat_gateway" {
   allocation_id = aws_eip.benevolate_eip.id
@@ -25,10 +25,10 @@ resource "aws_nat_gateway" "benevolate_nat_gateway" {
   tags = {
     Name = var.tag_name_nat_gateway
   }
-  depends_on = [  aws_eip.benevolate_eip ]
+  depends_on = [aws_eip.benevolate_eip]
 
 }
-         
+
 
 
 

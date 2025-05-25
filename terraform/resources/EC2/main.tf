@@ -11,11 +11,11 @@ resource "aws_instance" "ecs_instance" {
   associate_public_ip_address = true
   key_name                    = "vj-test"
   user_data = templatefile("${path.module}/user-data.sh", {
-      efs1_dns_name  = var.efs1_dns_name
-      efs2_dns_name  = var.efs2_dns_name
-      efs3_dns_name  = var.efs3_dns_name
-      hostname      = var.host_name
-    })
+    efs1_dns_name = var.efs1_dns_name
+    efs2_dns_name = var.efs2_dns_name
+    efs3_dns_name = var.efs3_dns_name
+    hostname      = var.host_name
+  })
 
   tags = {
     Name = var.ec2_tag_name

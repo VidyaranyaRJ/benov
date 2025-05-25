@@ -1,9 +1,9 @@
 terraform {
   backend "s3" {
-    bucket         = "vj-test-benvolate"  
-    key            = "terraform.tfstate"  
-    region         = "us-east-2" 
-    encrypt        = true
+    bucket  = "vj-test-benvolate"
+    key     = "terraform.tfstate"
+    region  = "us-east-2"
+    encrypt = true
   }
 }
 
@@ -52,15 +52,15 @@ locals {
 ###################### Module ###############################
 
 module "Instance_1" {
-  source                                 = "../../modules/EC2"
-  ami = local.ami
-  subnet       = data.terraform_remote_state.network.outputs.module_subnet_id
-  sg_id        = data.terraform_remote_state.network.outputs.module_security_group_id
-  ec2_tag_name = local.ec2_tag_name_tag1
+  source        = "../../modules/EC2"
+  ami           = local.ami
+  subnet        = data.terraform_remote_state.network.outputs.module_subnet_id
+  sg_id         = data.terraform_remote_state.network.outputs.module_security_group_id
+  ec2_tag_name  = local.ec2_tag_name_tag1
   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-  host_name = local.hostname_instance_1
+  host_name     = local.hostname_instance_1
 }
 
 

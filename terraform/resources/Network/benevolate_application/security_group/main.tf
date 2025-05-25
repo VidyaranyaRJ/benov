@@ -3,7 +3,7 @@
 resource "aws_security_group" "benevolate_security_group" {
   name        = var.security_group_name
   description = "Allow inbound traffic to ECS tasks"
-  vpc_id      = var.vpc_id  
+  vpc_id      = var.vpc_id
 
   dynamic "ingress" {
     for_each = var.security_group_ingress_rules
