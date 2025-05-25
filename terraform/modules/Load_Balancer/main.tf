@@ -62,7 +62,7 @@ module "load_balancer_1" {
   source             = "../../resources/Load Balancer"
   load_balancer_name = local.load_balancer_name
   vpc_id             = data.terraform_remote_state.vpc.outputs.module_vpc_id
-  security_group_id  = data.terraform_remote_state.security_group.outputs.module_security_group_id
+  security_group_id  = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   ec2_instance_ids = [
     data.terraform_remote_state.ec2.outputs.module_instance_1_id
     # data.terraform_remote_state.ec2.outputs.module_instance_2_id_for_ssm,
