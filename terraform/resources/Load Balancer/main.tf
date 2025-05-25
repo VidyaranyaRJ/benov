@@ -25,7 +25,8 @@ resource "aws_lb_target_group" "benevolate_application_target_group" {
   vpc_id   = var.vpc_id
 
   dynamic "health_check" {
-    for_each = var.aws_lb_target_group_health_check_config != null ? [var.aws_lb_target_group_health_check_config] : local.default_health_check
+    for_each = var.aws_lb_target_group_health_check_config != null ? [var.aws_lb_target_group_health_check_config] : [local.default_health_check]
+
     content {
       path                = health_check.value.path
       protocol            = health_check.value.protocol
