@@ -9,15 +9,32 @@ terraform {
 
 ###################### Data ###############################
 
-data "terraform_remote_state" "network" {
+data "terraform_remote_state" "vpc" {
   backend = "s3"
   config = {
     bucket = "vj-test-benvolate"
-    key    = "Network/terraform.tfstate"
+    key    = "Network/vpc/terraform.tfstate"
     region = "us-east-2"
   }
 }
 
+data "terraform_remote_state" "subnet" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/subnet/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "security_group" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/security_group/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
 
 data "terraform_remote_state" "ec2" {
   backend = "s3"
@@ -34,18 +51,20 @@ data "terraform_remote_state" "ec2" {
 locals {
   load_balancer_name = "Application-load-balancer"
   target_group_name  = "ALB-TG"
+  port               = 80
+  protocol           = "HTTP"
 }
 
 
 ###################### Module ###############################
 
 module "load_balancer_1" {
-  source             = "../../modules/Load Balancer"
+  source             = "../../resources/Load Balancer"
   load_balancer_name = local.load_balancer_name
-  vpc_id             = data.terraform_remote_state.network.outputs.module_vpc_id
-  security_group_id  = data.terraform_remote_state.network.outputs.module_security_group_id
+  vpc_id             = data.terraform_remote_state.vpc.outputs.module_vpc_id
+  security_group_id  = data.terraform_remote_state.security_group.outputs.module_security_group_id
   ec2_instance_ids = [
-    data.terraform_remote_state.ec2.outputs.module_instance_1_id_for_ssm
+    data.terraform_remote_state.ec2.outputs.module_instance_1_id
     # data.terraform_remote_state.ec2.outputs.module_instance_2_id_for_ssm,
     # data.terraform_remote_state.ec2.outputs.module_instance_3_id_for_ssm,
     # data.terraform_remote_state.ec2.outputs.module_instance_4_id_for_ssm,
@@ -53,9 +72,25 @@ module "load_balancer_1" {
   ]
   target_group_name = local.target_group_name
   subnet_ids = [
-    data.terraform_remote_state.network.outputs.module_subnet_id,
-    data.terraform_remote_state.network.outputs.module_subnet_id_2
+    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"],
+    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
   ]
+
+  internal                            = false
+  load_balancer_type                  = "application"
+  aws_lb_target_group_port            = local.protocol
+  aws_lb_target_group_protocol        = local.protocol
+  aws_lb_target_group_attachment_port = local.port
+  aws_lb_listener_port                = local.port
+  aws_lb_listener_protocol            = local.protocol
+  aws_lb_target_group_health_check_config = {
+    path                = "/health"
+    protocol            = local.protocol
+    interval            = 20
+    timeout             = 4
+    healthy_threshold   = 3
+    unhealthy_threshold = 2
+  }
 }
 
 
