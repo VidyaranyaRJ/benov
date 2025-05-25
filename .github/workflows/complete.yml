@@ -7,12 +7,12 @@ on:
 env:
   AWS_REGION: us-east-2
   TF_STATE_BUCKET: vj-test-benvolate
-  MODULE: Network/route_table/public                
+  MODULE: Network/route_tables/public                
  # Network/vpc
  # Network/subnet
  # Network/internet_and_nat_gateway
- # Network/route_table/public
- # Network/route_table/private
+ # Network/route_tables/public
+ # Network/route_tables/private
  #EFS 
  #EC2 
  #Load_Balancer
