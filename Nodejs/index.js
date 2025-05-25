@@ -21,8 +21,13 @@ app.get('/', (req, res) => {
   const hostname = os.hostname();
   
   // Send response with current timestamp and hostname
-  res.send(`Hello, World! - VJ all 5 instances ${dayOfWeek} ${timeString} - Server: ${hostname}`);
+  res.send(` VJ instance ${dayOfWeek} ${timeString} - Server: ${hostname}`);
 });
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+
 
 app.listen(3000, '0.0.0.0', () => {
   console.log('Server running on port 3000');
