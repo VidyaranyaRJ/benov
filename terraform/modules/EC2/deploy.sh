@@ -12,7 +12,9 @@ ZIP_S3_KEY="nodejs/nodejs-app.zip"
 
 # ==== Validate App ====
 echo "🔍 Verifying application source..."
-[[ -s index.js ]] && echo "✅ App file found and not empty" || { echo "❌ App file missing or empty"; exit 1; }
+# grep 'Hello' Nodejs/index.js
+[[ -s Nodejs/index.js ]] && echo "✅ App file found and not empty" || { echo "❌ App file missing or empty"; exit 1; }
+
 
 
 # ==== Zip App ====
