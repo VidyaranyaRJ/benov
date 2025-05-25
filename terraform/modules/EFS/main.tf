@@ -48,7 +48,7 @@ module "efs1" {
   creation_token                 = local.creation_token_efs1
   tag_name                       = local.tag_name_efs1
   subnet_id_for_efs_mount_target = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-  security_group_id_for_efs      = data.terraform_remote_state.security_group.outputs.module_security_group_id
+  security_group_id_for_efs      = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
 }
 
 module "efs2" {
@@ -56,7 +56,7 @@ module "efs2" {
   creation_token                 = local.creation_token_efs2
   tag_name                       = local.tag_name_efs2
   subnet_id_for_efs_mount_target = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-  security_group_id_for_efs      = data.terraform_remote_state.network.outputs.module_security_group_id
+  security_group_id_for_efs      = data.terraform_remote_state.network.outputs.module_benevolate_security_group_id
 }
 
 module "efs3" {
@@ -64,5 +64,5 @@ module "efs3" {
   creation_token                 = local.creation_token_efs3
   tag_name                       = local.tag_name_efs3
   subnet_id_for_efs_mount_target = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-  security_group_id_for_efs      = data.terraform_remote_state.network.outputs.module_security_group_id
+  security_group_id_for_efs      = data.terraform_remote_state.network.outputs.module_benevolate_security_group_id
 }
