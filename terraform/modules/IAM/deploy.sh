@@ -3,11 +3,11 @@ set -e
 
 # === Configuration ===
 TF_STATE_BUCKET="vj-test-benvolate"
-TF_STATE_KEY="EFS/terraform.tfstate"
+TF_STATE_KEY="IAM/terraform.tfstate"
 AWS_REGION="us-east-2"
 TERRAFORM_DIR="$(dirname "$0")"
 
-echo ">>> Deploying Terraform for EFS from: $TERRAFORM_DIR"
+echo ">>> Deploying Terraform for IAM from: $TERRAFORM_DIR"
 
 # === Initialize Terraform with backend config ===
 terraform -chdir="$TERRAFORM_DIR" init \
