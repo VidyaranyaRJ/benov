@@ -14,22 +14,3 @@ variable "private_subnet_id" {
 variable "private_route_table_tag_name" {
   type = string
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# variable "sg_name" {
-#   type        = string
-# }
-

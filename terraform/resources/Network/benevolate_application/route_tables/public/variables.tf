@@ -14,20 +14,3 @@ variable "public_subnet_id" {
 variable "public_route_table_tag_name" {
   type = string
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-# variable "sg_name" {
-#   type        = string
-# }
-
