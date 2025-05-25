@@ -85,7 +85,7 @@ module "load_balancer_1" {
   aws_lb_listener_protocol            = local.protocol
   stickiness_enabled                  = true
   stickiness_cookie_duration          = 5
-  type                                = "load_balancer_cookie"
+  type                                = "lb_cookie"
   aws_lb_target_group_health_check_config = {
     path                = "/health"
     protocol            = local.protocol
