@@ -72,8 +72,8 @@ module "load_balancer_1" {
   ]
   target_group_name = local.target_group_name
   subnet_ids = [
-    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"],
-    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
+    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"],
+    data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-2"]
   ]
 
   internal                            = false
