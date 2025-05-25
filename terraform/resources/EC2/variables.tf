@@ -44,3 +44,7 @@ variable "ami" {
 variable "host_name" {
   type = string
 }
+
+variable "associate_public_ip_address" {
+  type = bool
+}

@@ -1,5 +1,5 @@
-output "module_instance_1_id_for_ssm" {
-  value = module.instance_1.instance_id_for_ssm
+output "module_instance_1_id" {
+  value = module.instance_1.instance_id
 }
 
 

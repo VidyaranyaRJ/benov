@@ -1,3 +1,3 @@
-output "instance_id_for_ssm" {
-  value = aws_instance.ecs_instance.id
+output "instance_id" {
+  value = aws_instance.benevolate_ec2_instance.id
 }
