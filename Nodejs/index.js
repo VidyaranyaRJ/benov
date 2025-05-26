@@ -44,7 +44,7 @@ app.get('/time', (req, res) => {
   const dayOfWeek = days[now.getDay()];
   const hostname = os.hostname();
 
-  res.send(`🟢 ${dayOfWeek} ${hours}:${minutes}:${seconds} - Server: ${hostname}`);
+  res.send(`🟢Hi  ${dayOfWeek} ${hours}:${minutes}:${seconds} - Server: ${hostname}`);
 });
 
 // Optional health check
