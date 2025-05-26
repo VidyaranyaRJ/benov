@@ -178,8 +178,10 @@ TF_STATE_BUCKET=${TF_STATE_BUCKET:-vj-test-benvolate}
 EC2_TFSTATE_KEY="EC2/terraform.tfstate"
 ZIP_NAME="nodejs-app.zip"
 ZIP_S3_KEY="nodejs/nodejs-app.zip"
-GITHUB_REPO="https://github.com/VidyaranyaRJ/benvo.git"
-APP_FOLDER="benvo"
+
+# 👉 UPDATED: new repo
+GITHUB_REPO="https://github.com/VidyaranyaRJ/benov.git"
+APP_FOLDER="benov"
 
 # ==== Clone Repo ====
 echo "📥 Cloning Node.js app from GitHub..."
