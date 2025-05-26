@@ -47,10 +47,10 @@ terraform init \
   -backend-config="encrypt=true"
 
 terraform plan -input=false -out=tfplan
-terraform apply -auto-approve tfplan
+# terraform apply -auto-approve tfplan
 
 # # === Destroy resources ===
-# terraform destroy -auto-approve
+terraform destroy -auto-approve
 
 
 # cd ../../..
