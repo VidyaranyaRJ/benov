@@ -3,9 +3,9 @@ output "module_instance_1_id" {
 }
 
 
-# output "module_instance_2_id" {
-#   value = module.instance_2.instance_id
-# }
+output "module_instance_2_id" {
+  value = module.instance_2.instance_id
+}
 
 
 # output "module_instance_3" {
