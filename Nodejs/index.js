@@ -1,29 +1,57 @@
 const express = require('express');
+const os = require('os');
 const app = express();
 const port = 3000;
 
+// Serve the static HTML page
 app.get('/', (req, res) => {
-  // Get current date and time
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Live Time</title>
+      <style>
+        body { font-family: Arial; text-align: center; margin-top: 50px; }
+        #time { font-size: 2em; margin-top: 20px; }
+      </style>
+    </head>
+    <body>
+      <h1>⏰ VJ Instance Time</h1>
+      <div id="time">Loading...</div>
+
+      <script>
+        async function updateTime() {
+          const res = await fetch('/time');
+          const text = await res.text();
+          document.getElementById('time').innerText = text;
+        }
+
+        updateTime(); // initial call
+        setInterval(updateTime, 1000); // every second
+      </script>
+    </body>
+    </html>
+  `);
+});
+
+// API endpoint to return time data
+app.get('/time', (req, res) => {
   const now = new Date();
-  
-  // Format the time as HH:MM:SS
   const hours = now.getHours().toString().padStart(2, '0');
   const minutes = now.getMinutes().toString().padStart(2, '0');
   const seconds = now.getSeconds().toString().padStart(2, '0');
-  const timeString = `${hours}:${minutes}:${seconds}`;
-  
-  // Get day of the week
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayOfWeek = days[now.getDay()];
-  
-  // Get server hostname to identify different instances
-  const os = require('os');
   const hostname = os.hostname();
-  
-  // Send response with current timestamp and hostname
-  res.send(`Hello, World! - VJ all 5 instances ${dayOfWeek} ${timeString} - Server: ${hostname}`);
+
+  res.send(`🟢 ${dayOfWeek} ${hours}:${minutes}:${seconds} - Server: ${hostname}`);
 });
 
-app.listen(3000, '0.0.0.0', () => {
-  console.log('Server running on port 3000');
+// Optional health check
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
 });
