@@ -1,3 +1,60 @@
+# name: Deploy Infra and App via Terraform and CodeBuild
+
+# on:
+#   push:
+#     branches: [main]
+
+# jobs:
+#   provision-and-deploy:
+#     runs-on: ubuntu-latest
+
+#     env:
+#       AWS_REGION: us-east-2
+
+#     steps:
+#       - name: Checkout Code
+#         uses: actions/checkout@v3
+
+#       - name: Set up Terraform
+#         uses: hashicorp/setup-terraform@v2
+#         with:
+#           terraform_version: 1.6.6
+
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v2
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Terraform Init
+#         run: terraform init
+
+#       - name: Terraform Plan
+#         run: terraform plan -out=tfplan
+
+#       - name: Terraform Apply
+#         run: terraform apply -auto-approve tfplan
+
+#       # - name: Terraform destroy
+#       #   run: terraform destroy -auto-approve
+
+
+#       - name: Commit generated buildspec.yml
+#         env:
+#           GH_PAT: ${{ secrets.GH_PAT }}
+#         run: |
+#           git config --global user.email "actions@github.com"
+#           git config --global user.name "GitHub Actions"
+#           git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+#           git add Nodejs/buildspec.yml || echo "Nothing to commit"
+#           git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push)
+
+
+#       - name: Trigger CodeBuild
+#         uses: aws-actions/aws-codebuild-run-build@v1
+#         with:
+#           project-name: NodejsToEfs
 name: Deploy Infra and App via Terraform and CodeBuild
 
 on:
@@ -14,6 +71,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false  # Disable default GITHUB_TOKEN to allow manual PAT push
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
@@ -36,10 +95,6 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
 
-      # - name: Terraform destroy
-      #   run: terraform destroy -auto-approve
-
-
       - name: Commit generated buildspec.yml
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -49,7 +104,6 @@ jobs:
           git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
           git add Nodejs/buildspec.yml || echo "Nothing to commit"
           git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push)
-
 
       - name: Trigger CodeBuild
         uses: aws-actions/aws-codebuild-run-build@v1
