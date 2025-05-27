@@ -27,6 +27,7 @@ resource "aws_route53_record" "benevolate_route53_record" {
 
 
 
+
 resource "aws_acm_certificate_validation" "benevolate_acm_certificate_validation" {
   certificate_arn         = aws_acm_certificate.benevolate_https_certification.arn
   validation_record_fqdns = [for r in aws_route53_record.benevolate_route53_record : r.fqdn]
