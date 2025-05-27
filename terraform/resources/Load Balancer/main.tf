@@ -45,7 +45,7 @@ resource "aws_lb_target_group" "benevolate_application_target_group" {
 }
 
 
-resource "aws_lb_target_group_attachment" "tg_attachments" {
+resource "aws_lb_target_group_attachment" "benevolate_target_group_attachments" {
   count            = length(var.ec2_instance_ids)
   target_group_arn = aws_lb_target_group.benevolate_application_target_group.arn
   target_id        = var.ec2_instance_ids[count.index]
@@ -54,16 +54,41 @@ resource "aws_lb_target_group_attachment" "tg_attachments" {
 
 
 
-resource "aws_lb_listener" "http" {
+resource "aws_lb_listener" "benevoalte_https" {
   load_balancer_arn = aws_lb.benevolate_application_load_balancer.arn
-  port              = var.aws_lb_listener_port
-  protocol          = var.aws_lb_listener_protocol
+  port              = var.aws_lb_listener_https_port
+  protocol          = var.aws_lb_listener_https_protocol
+  ssl_policy        = var.lb_listener_ssl_policy
+  certificate_arn   = aws_acm_certificate.benevolate_https_certification.arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.benevolate_application_target_group.arn
   }
   depends_on = [
-    aws_lb_target_group_attachment.tg_attachments
+    aws_lb_target_group_attachment.benevolate_target_group_attachments,
+    aws_acm_certificate_validation.benevolate_acm_certificate_validation
+  ]
+}
+
+
+
+
+resource "aws_lb_listener" "benevolate_http_redirect" {
+  load_balancer_arn = aws_lb.benevolate_application_load_balancer.arn
+  port              = var.aws_lb_listener_port
+  protocol          = var.aws_lb_listener_protocol
+
+  default_action {
+    type = "redirect"
+    redirect {
+      port        = var.aws_lb_listener_https_port
+      protocol    = var.aws_lb_listener_https_protocol
+      status_code = var.aws_lb_listener_https_status_code
+    }
+  }
+
+  depends_on = [
+    aws_lb.benevolate_application_load_balancer
   ]
 }

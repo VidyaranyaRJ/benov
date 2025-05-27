@@ -58,6 +58,9 @@ locals {
 
 ###################### Module ###############################
 
+
+
+
 module "load_balancer_1" {
   source             = "../../resources/Load Balancer"
   load_balancer_name = local.load_balancer_name
@@ -83,9 +86,19 @@ module "load_balancer_1" {
   aws_lb_target_group_attachment_port = 3000
   aws_lb_listener_port                = local.port
   aws_lb_listener_protocol            = local.protocol
+
+  ## sticky session ##
   stickiness_enabled                  = true
   stickiness_cookie_duration          = 5
   type                                = "lb_cookie"
+
+  # ACM / HTTPS ##
+  acm_certificate_tag_name = "benevolate-cert"
+  route53_zone_id = "Z1008022QVBNCVSQ3P61"
+  route53_record_ttl = 60
+  domain_name = "benevolaite.com"  
+  lb_listener_ssl_policy = "ELBSecurityPolicy-2016-08"
+  
   aws_lb_target_group_health_check_config = {
     path                = "/health"
     protocol            = local.protocol
@@ -94,6 +107,13 @@ module "load_balancer_1" {
     healthy_threshold   = 3
     unhealthy_threshold = 2
   }
+
+  aws_lb_listener_https_status_code = "HTTP_301"
+  aws_lb_listener_https_port = "443"
+  aws_lb_listener_https_protocol = "HTTPS"
+
+
+
 }
 
 
