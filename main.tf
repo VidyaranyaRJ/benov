@@ -115,7 +115,7 @@ resource "aws_codebuild_project" "nodejs_to_efs" {
     vpc_id = data.terraform_remote_state.vpc.outputs.module_vpc_id
 
     subnets = [
-      for subnet_id in data.terraform_remote_state.subnet.outputs.module_subnet_id : subnet_id
+      data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
     ]
 
     security_group_ids = [
