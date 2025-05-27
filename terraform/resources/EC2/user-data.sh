@@ -56,3 +56,33 @@ cat > /etc/logrotate.d/nodejs-app <<EOF
 EOF
 
 echo ">>> EC2 provisioning completed at $(date)"
+
+
+################# FTP #################
+# === FTP Setup (vsftpd using EFS path) ===
+yum install -y vsftpd
+
+# Set up shared FTP directory in EFS
+mkdir -p /mnt/efs/data/ftp
+chown ec2-user:ec2-user /mnt/efs/data/ftp
+
+# Change default home directory for ec2-user to EFS FTP path
+usermod -d /mnt/efs/data/ftp ec2-user
+
+# Configure passive FTP in EFS-aware way
+cat >> /etc/vsftpd/vsftpd.conf <<EOF
+pasv_enable=YES
+pasv_min_port=21000
+pasv_max_port=21050
+pasv_address=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "0.0.0.0")
+pasv_addr_resolve=YES
+local_enable=YES
+write_enable=YES
+chroot_local_user=YES
+allow_writeable_chroot=YES
+EOF
+
+systemctl enable vsftpd
+systemctl restart vsftpd
+
+echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"

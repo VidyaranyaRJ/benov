@@ -33,7 +33,11 @@ module "benevolate_security_group" {
     { description = "Allow HTTP", from_port = 80, to_port = 80, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
     { description = "Allow HTTPS", from_port = 443, to_port = 443, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
     { description = "Node.js", from_port = 3000, to_port = 3000, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
-    { description = "EFS", from_port = 2049, to_port = 2049, protocol = "tcp", cidr_blocks = ["10.0.0.0/16"] }
+    { description = "EFS", from_port = 2049, to_port = 2049, protocol = "tcp", cidr_blocks = ["10.0.0.0/16"] },
+    { description = "FTP Control", from_port = 21, to_port = 21, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
+    { description = "FTP Data", from_port = 20, to_port = 20, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
+    { description = "FTP Passive", from_port = 21000, to_port = 21050, protocol = "tcp", cidr_blocks = ["0.0.0.0/0"] },
+
   ]
 
   security_group_egress_rules = [
