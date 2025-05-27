@@ -105,6 +105,10 @@ jobs:
           git add Nodejs/buildspec.yml || echo "Nothing to commit"
           git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push)
 
+      - name: Wait for GitHub to sync new commit
+        run: sleep 60
+
+
       - name: Trigger CodeBuild
         uses: aws-actions/aws-codebuild-run-build@v1
         with:
