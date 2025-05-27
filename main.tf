@@ -11,6 +11,34 @@ data "terraform_remote_state" "ec2" {
   }
 }
 
+
+data "terraform_remote_state" "vpc" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/vpc/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "subnet" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/subnet/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+data "terraform_remote_state" "security_group" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "Network/security_group/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
 # --- Remote State for EFS ---
 data "terraform_remote_state" "efs" {
   backend = "s3"
@@ -81,5 +109,17 @@ resource "aws_codebuild_project" "nodejs_to_efs" {
     image                       = "aws/codebuild/amazonlinux2-x86_64-standard:5.0"
     type                        = "LINUX_CONTAINER"
     privileged_mode             = false
+  }
+
+  vpc_config {
+    vpc_id = data.terraform_remote_state.vpc.outputs.module_vpc_id
+
+    subnets = [
+      for subnet_id in data.terraform_remote_state.subnet.outputs.module_subnet_id : subnet_id
+    ]
+
+    security_group_ids = [
+      data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+    ]
   }
 }
