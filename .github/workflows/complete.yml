@@ -44,29 +44,32 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -out=tfplan
 
-      - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+      # - name: Terraform Apply
+      #   run: terraform apply -auto-approve tfplan
 
-      - name: Generate buildspec.yml from template
-        run: |
-          cp Nodejs/buildspec-template.yml Nodejs/buildspec.yml
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve 
 
-      - name: Commit generated buildspec.yml
-        env:
-          GH_PAT: ${{ secrets.GH_PAT }}
-        run: |
-          git config --global user.email "actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
-          git add Nodejs/buildspec.yml || echo "Nothing to add"
-          git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push --set-upstream origin master)
+      # - name: Generate buildspec.yml from template
+      #   run: |
+      #     cp Nodejs/buildspec-template.yml Nodejs/buildspec.yml
+
+      # - name: Commit generated buildspec.yml
+      #   env:
+      #     GH_PAT: ${{ secrets.GH_PAT }}
+      #   run: |
+      #     git config --global user.email "actions@github.com"
+      #     git config --global user.name "GitHub Actions"
+      #     git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
+      #     git add Nodejs/buildspec.yml || echo "Nothing to add"
+      #     git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push --set-upstream origin master)
 
 
-      - name: Wait for GitHub to sync new commit
-        run: sleep 60
+      # - name: Wait for GitHub to sync new commit
+      #   run: sleep 60
 
-      - name: Trigger CodeBuild
-        run: |
-          aws codebuild start-build \
-            --project-name NodejsToEfs \
-            --region $AWS_REGION
+      # - name: Trigger CodeBuild
+      #   run: |
+      #     aws codebuild start-build \
+      #       --project-name NodejsToEfs \
+      #       --region $AWS_REGION
