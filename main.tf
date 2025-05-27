@@ -28,17 +28,18 @@ locals {
     data.terraform_remote_state.ec2.outputs.module_instance_2_id
   ])
 
-  efs_id = data.terraform_remote_state.efs.outputs.module_efs_id
+  efs_id = data.terraform_remote_state.efs.outputs.module_efs1_id
 }
 
 # --- Generate Buildspec Dynamically ---
 resource "local_file" "buildspec" {
-  filename = "${path.module}/buildspec.yml"
-  content  = templatefile("${path.module}/buildspec-template.yml", {
+  filename = "${path.module}/Nodejs/buildspec.yml"
+  content  = templatefile("${path.module}/Nodejs/buildspec-template.yml", {
     efs_id       = local.efs_id,
     instance_ids = local.ec2_instance_ids
   })
 }
+
 
 # --- CodeBuild IAM Role ---
 resource "aws_iam_role" "codebuild_role" {
@@ -66,8 +67,8 @@ resource "aws_codebuild_project" "nodejs_to_efs" {
 
   source {
     type     = "GITHUB"
-    location = "https://github.com/<your-username>/<your-repo>.git"
-    buildspec = "buildspec.yml"
+    location = "https://github.com/VidyaranyaRJ/benov.git"
+    buildspec = "Nodejs/buildspec.yml"
   }
 
   artifacts {
