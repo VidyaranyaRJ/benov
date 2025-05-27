@@ -7,7 +7,7 @@ TF_STATE_KEY="Load_Balancer/terraform.tfstate"
 AWS_REGION="us-east-2"
 TERRAFORM_DIR="$(dirname "$0")"
 
-echo ">>> Deploying Terraform for EFS from: $TERRAFORM_DIR"
+echo ">>> Deploying Terraform for Load Balancer from: $TERRAFORM_DIR"
 
 # === Initialize Terraform with backend config ===
 terraform -chdir="$TERRAFORM_DIR" init \
@@ -19,8 +19,8 @@ terraform -chdir="$TERRAFORM_DIR" init \
 # === Plan and apply ===
 terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan
 
-# terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
+terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
 
 
 # === Destroy resources ===
-terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve
+# terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve

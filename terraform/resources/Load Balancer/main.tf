@@ -59,15 +59,14 @@ resource "aws_lb_listener" "benevoalte_https" {
   port              = var.aws_lb_listener_https_port
   protocol          = var.aws_lb_listener_https_protocol
   ssl_policy        = var.lb_listener_ssl_policy
-  certificate_arn   = aws_acm_certificate.benevolate_https_certification.arn
+  certificate_arn   = var.acm_certificate_arn
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.benevolate_application_target_group.arn
   }
   depends_on = [
-    aws_lb_target_group_attachment.benevolate_target_group_attachments,
-    aws_acm_certificate_validation.benevolate_acm_certificate_validation
+    aws_lb_target_group_attachment.benevolate_target_group_attachments
   ]
 }
 

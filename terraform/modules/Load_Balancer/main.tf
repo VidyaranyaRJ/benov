@@ -46,6 +46,15 @@ data "terraform_remote_state" "ec2" {
 }
 
 
+data "terraform_remote_state" "acm_route53" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "ACM_Route53/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
 ###################### Locals ###############################
 
 locals {
@@ -57,7 +66,6 @@ locals {
 
 
 ###################### Module ###############################
-
 
 
 
@@ -93,9 +101,8 @@ module "load_balancer_1" {
   type                                = "lb_cookie"
 
   # ACM / HTTPS ##
-  acm_certificate_tag_name = "benevolate-cert"
+
   route53_zone_id = "Z1008022QVBNCVSQ3P61"
-  route53_record_ttl = 60
   domain_name = "benevolaite.com"  
   lb_listener_ssl_policy = "ELBSecurityPolicy-2016-08"
   
@@ -111,7 +118,7 @@ module "load_balancer_1" {
   aws_lb_listener_https_status_code = "HTTP_301"
   aws_lb_listener_https_port = "443"
   aws_lb_listener_https_protocol = "HTTPS"
-
+  acm_certificate_arn = data.terraform_remote_state.acm_route53.outputs.module_certificate_arn
 
 
 }
