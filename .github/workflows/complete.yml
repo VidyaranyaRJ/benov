@@ -16,13 +16,14 @@ jobs:
       AWS_REGION: us-east-2
 
     steps:
-      - name: Sparse checkout Nodejs and root (Terraform) folders
+      - name: Sparse checkout Terraform and Nodejs folders
         run: |
           git init
           git remote add origin https://github.com/${{ github.repository }}.git
           git config core.sparseCheckout true
+          echo "main.tf" >> .git/info/sparse-checkout
+          echo "providers.tf" >> .git/info/sparse-checkout
           echo "Nodejs/" >> .git/info/sparse-checkout
-          echo "/" >> .git/info/sparse-checkout
           git pull origin main
 
       - name: Set up Terraform
