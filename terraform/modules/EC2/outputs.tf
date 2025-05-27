@@ -8,15 +8,15 @@ output "module_instance_2_id" {
 }
 
 
-output "module_instance_3" {
+output "module_instance_3_id" {
   value = module.instance_3.instance_id
 }
 
-output "module_instance_4" {
+output "module_instance_4_id" {
   value = module.instance_4.instance_id
 }
 
 
-output "module_instance_5" {
+output "module_instance_5_id" {
   value = module.instance_5.instance_id
 }
