@@ -47,6 +47,10 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
 
+      - name: Generate buildspec.yml from template
+        run: |
+          cp Nodejs/buildspec-template.yml Nodejs/buildspec.yml
+
       - name: Commit generated buildspec.yml
         env:
           GH_PAT: ${{ secrets.GH_PAT }}
@@ -55,7 +59,7 @@ jobs:
           git config --global user.name "GitHub Actions"
           git remote set-url origin https://x-access-token:${GH_PAT}@github.com/${{ github.repository }}
           git add Nodejs/buildspec.yml || echo "Nothing to add"
-          git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push)
+          git diff --cached --quiet || (git commit -m "Commit generated buildspec.yml" && git push --set-upstream origin main)
 
       - name: Wait for GitHub to sync new commit
         run: sleep 60
