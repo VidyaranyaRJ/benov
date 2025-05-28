@@ -97,7 +97,7 @@ cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           {
             "file_path": "/mnt/efs/logs/*.log",
             "log_group_name": "/efs/app/logs",
-            "log_stream_name": "{instance_id}",
+            "log_stream_name": "{hostname}-{instance_id}",
             "timestamp_format": "%Y-%m-%d %H:%M:%S"
           }
         ]
