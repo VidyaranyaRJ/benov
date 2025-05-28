@@ -88,6 +88,21 @@ echo ">>> Installing and configuring CloudWatch Agent"
 
 yum install -y amazon-cloudwatch-agent
 
+# === Generate dynamic log stream name ===
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)
+
+# Install jq if missing
+yum install -y jq aws-cli
+
+INSTANCE_NAME=$(aws ec2 describe-tags \
+  --region "$REGION" \
+  --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=Name" \
+  --query "Tags[0].Value" --output text)
+
+LOG_STREAM_NAME="${INSTANCE_NAME:-unnamed}-$INSTANCE_ID"
+
+# === CloudWatch Agent Config ===
 cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
 {
   "logs": {
@@ -97,7 +112,7 @@ cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
           {
             "file_path": "/mnt/efs/logs/*.log",
             "log_group_name": "/efs/app/logs",
-            "log_stream_name": "{hostname}-{instance_id}",
+            "log_stream_name": "$LOG_STREAM_NAME",
             "timestamp_format": "%Y-%m-%d %H:%M:%S"
           }
         ]
@@ -106,6 +121,7 @@ cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
   }
 }
 CWCONF
+
 
 /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -a fetch-config \
