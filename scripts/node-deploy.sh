@@ -104,7 +104,7 @@ mkdir -p "$APP_DIR" "$TEMP_DIR" "$LOG_DIR"
 
 # Fix EFS log directory ownership
 echo "🔐 Fixing log directory permissions"
-sudo chown -R ssm-user:ssm-user "$LOG_DIR"
+sudo chown -R ec2-user:ec2-user "$LOG_DIR"
 chmod 755 "$LOG_DIR"
 
 # Download the latest application from S3
