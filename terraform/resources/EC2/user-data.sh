@@ -100,7 +100,7 @@ INSTANCE_NAME=$(aws ec2 describe-tags \
   --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=Name" \
   --query "Tags[0].Value" --output text)
 
-LOG_STREAM_NAME="${INSTANCE_NAME:-unnamed}-$INSTANCE_ID"
+LOG_STREAM_NAME="$${INSTANCE_NAME:-unnamed}-$${INSTANCE_ID}"
 
 # === CloudWatch Agent Config ===
 cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
