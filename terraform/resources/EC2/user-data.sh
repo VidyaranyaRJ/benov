@@ -4,7 +4,6 @@
 hostnamectl set-hostname ${hostname}
 echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
 
-
 exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> Starting EC2 provisioning at $(date)"
 
@@ -62,14 +61,10 @@ echo ">>> EC2 provisioning completed at $(date)"
 # === FTP Setup (vsftpd using EFS path) ===
 yum install -y vsftpd
 
-# Set up shared FTP directory in EFS
 mkdir -p /mnt/efs/data/ftp
 chown ec2-user:ec2-user /mnt/efs/data/ftp
-
-# Change default home directory for ec2-user to EFS FTP path
 usermod -d /mnt/efs/data/ftp ec2-user
 
-# Configure passive FTP in EFS-aware way
 cat >> /etc/vsftpd/vsftpd.conf <<EOF
 pasv_enable=YES
 pasv_min_port=21000
@@ -84,5 +79,38 @@ EOF
 
 systemctl enable vsftpd
 systemctl restart vsftpd
-
 echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
+
+
+################# CloudWatch Logs Integration #################
+
+echo ">>> Installing and configuring CloudWatch Agent"
+
+yum install -y amazon-cloudwatch-agent
+
+cat <<CWCONF > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/mnt/efs/logs/*.log",
+            "log_group_name": "/efs/app/logs",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          }
+        ]
+      }
+    }
+  }
+}
+CWCONF
+
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config \
+  -m ec2 \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
+  -s
+
+echo "✅ CloudWatch Agent configured and running"
