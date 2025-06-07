@@ -71,7 +71,7 @@ module "instance_1" {
   efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
   host_name                   = local.hostname_instance_1
-  associate_public_ip_address = false
+  associate_public_ip_address = true
 }
 
 
@@ -85,7 +85,7 @@ module "instance_1" {
    efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
    efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
    host_name                   = local.hostname_instance_2
-   associate_public_ip_address = false
+   associate_public_ip_address = true
  }
 
 
