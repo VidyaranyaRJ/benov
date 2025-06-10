@@ -44,6 +44,9 @@ app.get('/time', (req, res) => {
   const dayOfWeek = days[now.getDay()];
   const hostname = os.hostname();
 
+  // Log instance hostname and the current time to CloudWatch
+  console.log(`Instance: ${hostname} - Time: ${dayOfWeek} ${hours}:${minutes}:${seconds}`);
+
   res.send(`🟢Hi  ${dayOfWeek} ${hours}:${minutes}:${seconds} - Server: ${hostname}`);
 });
 
@@ -52,6 +55,7 @@ app.get('/health', (req, res) => {
   res.status(200).send('OK');
 });
 
+// Start the server
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
