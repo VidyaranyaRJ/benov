@@ -1,6 +1,5 @@
 #!/bin/bash
 
-
 # set -e
 
 # echo "Starting EC2 provisioning and base setup"
@@ -22,8 +21,6 @@
 
 # terraform plan -input=false -out=tfplan
 # # terraform apply -auto-approve tfplan
-
-
 
 # # # # === Destroy resources ===
 # terraform destroy -auto-approve
@@ -83,10 +80,10 @@ terraform init \
   -backend-config="encrypt=true"
 
 terraform plan -input=false -out=tfplan
-terraform apply -auto-approve tfplan
+# terraform apply -auto-approve tfplan
 
 # # === Destroy resources ===
-# terraform destroy -auto-approve
+terraform destroy -auto-approve
 
 
 # cd ../../..
