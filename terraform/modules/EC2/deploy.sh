@@ -1,78 +1,18 @@
 #!/bin/bash
 
-# set -e
-
-# echo "Starting EC2 provisioning and base setup"
-
-# # ==== Config ====
-# AWS_REGION=${AWS_REGION:-us-east-2}
-# TF_STATE_BUCKET=${TF_STATE_BUCKET:-vj-test-benvolate}
-# EC2_TFSTATE_KEY="EC2/terraform.tfstate"
-
-# # ==== Terraform EC2 ====
-# echo "📐 Terraform Init & Apply for EC2..."
-# cd terraform/modules/EC2
-
-# terraform init \
-#   -backend-config="bucket=$TF_STATE_BUCKET" \
-#   -backend-config="key=$EC2_TFSTATE_KEY" \
-#   -backend-config="region=$AWS_REGION" \
-#   -backend-config="encrypt=true"
-
-# terraform plan -input=false -out=tfplan
-# # terraform apply -auto-approve tfplan
-
-# # # # === Destroy resources ===
-# terraform destroy -auto-approve
-
-
-# echo "EC2 base provisioning complete. EFS will be mounted via user-data.sh"
-
-
-
-
-
 set -e
 
-echo "🚀 Starting EC2 deployment"
+echo "Starting EC2 provisioning and base setup"
 
 # ==== Config ====
 AWS_REGION=${AWS_REGION:-us-east-2}
 TF_STATE_BUCKET=${TF_STATE_BUCKET:-vj-test-benvolate}
 EC2_TFSTATE_KEY="EC2/terraform.tfstate"
-ZIP_NAME="nodejs-app.zip"
-ZIP_S3_KEY="nodejs/nodejs-app.zip"
-
-# 👉 UPDATED: new repo
-GITHUB_REPO="https://github.com/VidyaranyaRJ/benov.git"
-APP_FOLDER="benov"
-
-# ==== Clone Repo ====
-echo "📥 Cloning Node.js app from GitHub..."
-rm -rf $APP_FOLDER
-git clone $GITHUB_REPO
-[[ -d "$APP_FOLDER/Nodejs" ]] || { echo "❌ Nodejs folder not found in repo"; exit 1; }
-
-# ==== Validate App ====
-echo "🔍 Verifying application source..."
-[[ -s "$APP_FOLDER/Nodejs/index.js" ]] && echo "✅ App file found and not empty" || { echo "❌ App file missing or empty"; exit 1; }
-
-# ==== Zip App ====
-echo "📦 Zipping Node.js app..."
-rm -f $ZIP_NAME
-cd $APP_FOLDER/Nodejs
-zip -r ../../$ZIP_NAME .
-cd ../..
-ls -lh $ZIP_NAME
-
-# ==== Upload to S3 ====
-echo "☁️ Uploading files to S3..."
-aws s3 cp $ZIP_NAME s3://$TF_STATE_BUCKET/$ZIP_S3_KEY --region $AWS_REGION
-aws s3 cp scripts/node-deploy.sh s3://$TF_STATE_BUCKET/scripts/node-deploy.sh --region $AWS_REGION
 
 # ==== Terraform EC2 ====
 echo "📐 Terraform Init & Apply for EC2..."
 cd terraform/modules/EC2
+
 terraform init \
   -backend-config="bucket=$TF_STATE_BUCKET" \
   -backend-config="key=$EC2_TFSTATE_KEY" \
@@ -82,8 +22,68 @@ terraform init \
 terraform plan -input=false -out=tfplan
 # terraform apply -auto-approve tfplan
 
-# # === Destroy resources ===
+# # # === Destroy resources ===
 terraform destroy -auto-approve
+
+
+echo "EC2 base provisioning complete. EFS will be mounted via user-data.sh"
+
+
+
+
+
+# # set -e
+
+# # echo "🚀 Starting EC2 deployment"
+
+# # # ==== Config ====
+# # AWS_REGION=${AWS_REGION:-us-east-2}
+# # TF_STATE_BUCKET=${TF_STATE_BUCKET:-vj-test-benvolate}
+# # EC2_TFSTATE_KEY="EC2/terraform.tfstate"
+# # ZIP_NAME="nodejs-app.zip"
+# # ZIP_S3_KEY="nodejs/nodejs-app.zip"
+
+# # # 👉 UPDATED: new repo
+# # GITHUB_REPO="https://github.com/VidyaranyaRJ/benov.git"
+# # APP_FOLDER="benov"
+
+# # # ==== Clone Repo ====
+# # echo "📥 Cloning Node.js app from GitHub..."
+# # rm -rf $APP_FOLDER
+# # git clone $GITHUB_REPO
+# # [[ -d "$APP_FOLDER/Nodejs" ]] || { echo "❌ Nodejs folder not found in repo"; exit 1; }
+
+# # # ==== Validate App ====
+# # echo "🔍 Verifying application source..."
+# # [[ -s "$APP_FOLDER/Nodejs/index.js" ]] && echo "✅ App file found and not empty" || { echo "❌ App file missing or empty"; exit 1; }
+
+# # # ==== Zip App ====
+# # echo "📦 Zipping Node.js app..."
+# # rm -f $ZIP_NAME
+# # cd $APP_FOLDER/Nodejs
+# # zip -r ../../$ZIP_NAME .
+# # cd ../..
+# # ls -lh $ZIP_NAME
+
+# # # ==== Upload to S3 ====
+# # echo "☁️ Uploading files to S3..."
+# # aws s3 cp $ZIP_NAME s3://$TF_STATE_BUCKET/$ZIP_S3_KEY --region $AWS_REGION
+# # aws s3 cp scripts/node-deploy.sh s3://$TF_STATE_BUCKET/scripts/node-deploy.sh --region $AWS_REGION
+
+# # # ==== Terraform EC2 ====
+# # echo "📐 Terraform Init & Apply for EC2..."
+# # cd terraform/modules/EC2
+# # terraform init \
+# #   -backend-config="bucket=$TF_STATE_BUCKET" \
+# #   -backend-config="key=$EC2_TFSTATE_KEY" \
+# #   -backend-config="region=$AWS_REGION" \
+# #   -backend-config="encrypt=true"
+
+# # terraform plan -input=false -out=tfplan
+# # # terraform apply -auto-approve tfplan
+
+# # # # === Destroy resources ===
+# # terraform destroy -auto-approve
 
 
 # cd ../../..
