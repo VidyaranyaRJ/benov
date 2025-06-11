@@ -72,6 +72,7 @@ module "instance_1" {
   efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
   host_name                   = local.hostname_instance_1
   associate_public_ip_address = true
+  key_name                    = "vj-Benevolate"
 }
 
 
@@ -86,6 +87,7 @@ module "instance_1" {
 #    efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
 #    host_name                   = local.hostname_instance_2
 #    associate_public_ip_address = true
+#    key_name                    = "vj-Benevolate"
 #  }
 
 
@@ -100,6 +102,8 @@ module "instance_1" {
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
 #   host_name = local.hostname_instance_3
 #   associate_public_ip_address = false
+#    key_name                    = "vj-Benevolate"
+
 # }
 
 
@@ -114,6 +118,8 @@ module "instance_1" {
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
 #   host_name = local.hostname_instance_4
 #   associate_public_ip_address = false
+#    key_name                    = "vj-Benevolate"
+
 # }
 
 
@@ -128,4 +134,6 @@ module "instance_1" {
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
 #   host_name = local.hostname_instance_5
 #   associate_public_ip_address = false
+#    key_name                    = "vj-Benevolate"
+
 # }

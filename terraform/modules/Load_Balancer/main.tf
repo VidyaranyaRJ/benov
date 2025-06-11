@@ -96,16 +96,16 @@ module "load_balancer_1" {
   aws_lb_listener_protocol            = local.protocol
 
   ## sticky session ##
-  stickiness_enabled                  = true
-  stickiness_cookie_duration          = 5
-  type                                = "lb_cookie"
+  stickiness_enabled         = true
+  stickiness_cookie_duration = 5
+  type                       = "lb_cookie"
 
   # ACM / HTTPS ##
 
-  route53_zone_id = "Z1008022QVBNCVSQ3P61"
-  domain_name = "benevolaite.com"  
+  route53_zone_id        = "Z1008022QVBNCVSQ3P61"
+  domain_name            = "benevolaite.com"
   lb_listener_ssl_policy = "ELBSecurityPolicy-2016-08"
-  
+
   aws_lb_target_group_health_check_config = {
     path                = "/health"
     protocol            = local.protocol
@@ -116,9 +116,9 @@ module "load_balancer_1" {
   }
 
   aws_lb_listener_https_status_code = "HTTP_301"
-  aws_lb_listener_https_port = "443"
-  aws_lb_listener_https_protocol = "HTTPS"
-  acm_certificate_arn = data.terraform_remote_state.acm_route53.outputs.module_certificate_arn
+  aws_lb_listener_https_port        = "443"
+  aws_lb_listener_https_protocol    = "HTTPS"
+  acm_certificate_arn               = data.terraform_remote_state.acm_route53.outputs.module_certificate_arn
 
 
 }

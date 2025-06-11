@@ -48,3 +48,8 @@ variable "host_name" {
 variable "associate_public_ip_address" {
   type = bool
 }
+
+
+variable "key_name" {
+  type = string
+}
