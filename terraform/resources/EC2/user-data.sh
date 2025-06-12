@@ -97,7 +97,7 @@ yum install -y amazon-cloudwatch-agent
   REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)
 
   echo ">>> EC2 Instance Region: $REGION"
-  
+
   # Install jq if missing
   yum install -y jq aws-cli
 
@@ -125,7 +125,7 @@ yum install -y amazon-cloudwatch-agent
         }
       }
     },
-    "region": "$REGION"
+    "region": "us-east-2"
 }
 CWCONF
 
