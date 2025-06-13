@@ -94,7 +94,7 @@ yum install -y amazon-cloudwatch-agent
 
   # === Generate dynamic log stream name ===
   INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-  REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq -r .region)
+  REGION="us-east-2"
 
   echo ">>> EC2 Instance Region: $REGION"
 
