@@ -150,7 +150,7 @@
 
 
 
-
+# EC2 User Data script for Node.js app deployment using EFS and S3-based delivery
 
 hostnamectl set-hostname ${hostname}
 echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
@@ -166,8 +166,8 @@ exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> Starting EC2 provisioning at $(date)"
 
 # === System Preparation ===
-dnf update -y
-dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync
+sudo dnf update -y
+sudo dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync
 npm install -g pm2
 
 # === Create Mount Points ===
@@ -216,7 +216,7 @@ echo ">>> EC2 provisioning completed at $(date)"
 
 ################# FTP #################
 # === FTP Setup (vsftpd using EFS path) ===
-dnf install -y vsftpd
+sudo dnf install -y vsftpd
 
 mkdir -p /mnt/efs/data/ftp
 chown ec2-user:ec2-user /mnt/efs/data/ftp
@@ -242,7 +242,8 @@ echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
 
 echo ">>> Installing and configuring CloudWatch Agent"
 
-dnf install -y amazon-cloudwatch-agent
+# Install CloudWatch Agent
+sudo dnf install -y amazon-cloudwatch-agent
 
 # === Generate dynamic log stream name ===
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
@@ -251,7 +252,7 @@ REGION="us-east-2"
 echo ">>> EC2 Instance Region: $REGION"
 
 # Install jq if missing
-dnf install -y jq aws-cli
+sudo dnf install -y jq aws-cli
 
 INSTANCE_NAME=$(aws ec2 describe-tags \
   --region "$REGION" \
@@ -291,4 +292,3 @@ CWCONF
   -s
 
 echo "✅ CloudWatch Agent configured and running"
-
