@@ -34,7 +34,7 @@ JSON
 
 resource "aws_ssm_association" "cloudwatch_association" {
   for_each         = toset(var.ec2_instance_ids)  # Loop through EC2 instance IDs
-  name             = aws_ssm_document.cloudwatch_agent_document.name
+  name             = aws_ssm_document.benevolate_cloudwatch_agent_document.name
   association_name = "CloudWatchAgentInstall"
 
   targets {
