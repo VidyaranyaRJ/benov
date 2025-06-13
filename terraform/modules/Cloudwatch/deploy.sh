@@ -18,7 +18,7 @@ terraform -chdir="$TERRAFORM_DIR" init \
 
 # === Plan and apply ===
 terraform -chdir="$TERRAFORM_DIR" plan -out=tfplan
-terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
+# terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
 
 # # === Destroy resources ===
-# terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve
+terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve
