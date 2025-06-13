@@ -1,10 +1,9 @@
 resource "aws_s3_object" "cloudwatch_config" {
-  bucket = var.cloudwatch_s3_bucket
-  key    = var.cloudwatch_s3_path
-  source = "C:/Users/vrjav/Downloads/Desktop folders/Benevolate/terraform/resources/Cloudwatch/cloudwatch-agent-config.json"  
-  acl    = "private"
+  bucket = "vj-test-benvolate"                          # S3 Bucket name
+  key    = "Cloudwatch/cloudwatch-agent-config.json"     # Path inside the S3 bucket
+  source = "C:/Users/vrjav/Downloads/Desktop folders/Benevolate/terraform/resources/Cloudwatch/cloudwatch-agent-config.json"  # Local file path
+  acl    = "private"                                    # ACL for the file (private means only the owner can access)
 }
-
 
 resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   name          = "CloudWatchAgentConfig"
