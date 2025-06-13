@@ -18,7 +18,7 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   "mainSteps": [
     {
       "action": "aws:runShellScript",
-      "name": "configure-cloudwatch-agent",
+      "name": "configure_cloudwatch_agent",
       "inputs": {
         "runCommand": [
           "#!/bin/bash",
