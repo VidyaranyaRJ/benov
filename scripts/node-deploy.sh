@@ -38,7 +38,9 @@ fi
 
 # Install dependencies
 echo "Installing dependencies..."
-npm install --production
+npm install 
+
+npm install dotenv
 
 # Prepare for deployment
 echo "Preparing for deployment..."
