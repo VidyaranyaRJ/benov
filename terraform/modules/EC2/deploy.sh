@@ -116,9 +116,9 @@ for INSTANCE_ID in $INSTANCE_IDS; do
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-      "sudo dnf install -y nginx",  # Replaced yum with dnf for NGINX installation
-      "sudo systemctl enable nginx",
-      "sudo systemctl start nginx",
+      "sudo dnf install -y nginx", 
+      "sudo systemctl enable nginx", 
+      "sudo systemctl start nginx", 
       "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'\''CONFIG'\''\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection '\''upgrade'\'';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
       "sudo rm -f /etc/nginx/conf.d/default.conf",
       "sudo nginx -t && sudo systemctl reload nginx"
@@ -127,7 +127,8 @@ for INSTANCE_ID in $INSTANCE_IDS; do
     --query "Command.CommandId" \
     --output text)
 
-  for i in {1..10}; do
+
+  for _ in {1..10}; do
     STATUS=$(aws ssm get-command-invocation \
       --command-id "$CMD_ID" \
       --instance-id "$INSTANCE_ID" \
