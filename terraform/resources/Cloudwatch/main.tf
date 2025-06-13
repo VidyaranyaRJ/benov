@@ -9,11 +9,26 @@ resource "aws_s3_object" "cloudwatch_config" {
 resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   name          = "CloudWatchAgentConfig"
   document_type = "Command"
-  content = templatefile("cloudwatch-agent-config.json", {
-    region               = var.region
-    cloudwatch_s3_bucket = var.cloudwatch_s3_bucket
-    cloudwatch_s3_path   = var.cloudwatch_s3_path
-  })
+  content = <<JSON
+{
+  "schemaVersion": "2.2",
+  "description": "CloudWatch Agent Installation and Configuration",
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "configure-cloudwatch-agent",
+      "inputs": {
+        "runCommand": [
+          "mkdir -p /opt/aws/amazon-cloudwatch-agent/etc",
+          "aws s3 cp s3://${var.cloudwatch_s3_bucket}/${var.cloudwatch_s3_path} /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a stop",
+          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a start"
+        ]
+      }
+    }
+  ]
+}
+JSON
 }
 
 
