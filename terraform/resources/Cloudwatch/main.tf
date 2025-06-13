@@ -1,3 +1,5 @@
+# File: terraform/resources/Cloudwatch/main.tf
+
 resource "aws_s3_object" "cloudwatch_config" {
   bucket  = var.cloudwatch_s3_bucket
   key     = var.cloudwatch_s3_path
@@ -17,13 +19,41 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   "mainSteps": [
     {
       "action": "aws:runShellScript",
-      "name": "configure-cloudwatch-agent",
+      "name": "install-and-configure-cloudwatch-agent",
       "inputs": {
         "runCommand": [
-          "mkdir -p /opt/aws/amazon-cloudwatch-agent/etc",
-          "aws s3 cp s3://${var.cloudwatch_s3_bucket}/${var.cloudwatch_s3_path} /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
-          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s",
-          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a start"
+          "#!/bin/bash",
+          "set -e",
+          "echo 'Starting CloudWatch Agent installation and configuration'",
+          "",
+          "# Download and install CloudWatch Agent if not already installed",
+          "if [ ! -f /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl ]; then",
+          "  echo 'Installing CloudWatch Agent'",
+          "  wget -q https://amazoncloudwatch-agent.s3.amazonaws.com/amazon_linux/amd64/latest/amazon-cloudwatch-agent.rpm",
+          "  sudo rpm -U ./amazon-cloudwatch-agent.rpm",
+          "  rm -f ./amazon-cloudwatch-agent.rpm",
+          "fi",
+          "",
+          "# Create configuration directory",
+          "sudo mkdir -p /opt/aws/amazon-cloudwatch-agent/etc",
+          "",
+          "# Download configuration from S3",
+          "echo 'Downloading CloudWatch Agent configuration from S3'",
+          "aws s3 cp s3://${var.cloudwatch_s3_bucket}/${var.cloudwatch_s3_path} /tmp/amazon-cloudwatch-agent.json",
+          "sudo mv /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+          "",
+          "# Stop existing agent if running",
+          "echo 'Stopping existing CloudWatch Agent if running'",
+          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a stop || true",
+          "",
+          "# Start agent with new configuration",
+          "echo 'Starting CloudWatch Agent with new configuration'",
+          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+          "",
+          "# Verify agent is running",
+          "echo 'Verifying CloudWatch Agent status'",
+          "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status",
+          "echo 'CloudWatch Agent installation and configuration completed successfully'"
         ]
       }
     }
