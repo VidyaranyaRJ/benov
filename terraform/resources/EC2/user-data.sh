@@ -95,52 +95,5 @@ echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
 
 
 
-# hostnamectl set-hostname ${hostname}
-# echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
-# echo "export PS1='$(hostname) \$ '" >> /etc/bashrc
-# source /etc/bashrc
-
-# exec > >(tee /var/log/user-data.log) 2>&1
-# echo ">>> Starting EC2 provisioning at $(date)"
-
-# # === System Preparation ===
-# sudo dnf update -y
-# sudo dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync
-# npm install -g pm2
-
-# # === Create Mount Points ===
-# mkdir -p /mnt/efs/{data,code,logs}
-
-# # === Mount EFS Code and Data (no access point needed if root-only) ===
-# mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
-# mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
-
-# # === Mount EFS Logs Using Access Point ===
-# mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport ${efs3_dns_name}:/${efs_logs_access_point_id} /mnt/efs/logs
-
-# # === Make EFS Mounts Persistent ===
-# cat >> /etc/fstab <<EOF
-# ${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0
-# ${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0
-# ${efs3_dns_name}:/${efs_logs_access_point_id} /mnt/efs/logs nfs4 defaults,_netdev 0 0
-# EOF
-
-# # === Set Permissions ===
-# chown ssm-user:ssm-user /mnt/efs/logs
-# chmod 755 /mnt/efs/logs
-
-# # === .env Config ===
-# cat > /mnt/efs/code/nodejs-app/.env <<EOF
-# PORT=3000
-# NODE_ENV=production
-# LOG_PATH=/mnt/efs/logs
-# DATA_PATH=/mnt/efs/data
-# EOF
-
-# # === Start App as ssm-user ===
-# cd /mnt/efs/code/nodejs-app
-# sudo -u ssm-user node index.js >> /mnt/efs/logs/node-app.log 2>&1 &
-
-# echo ">>> EC2 provisioning completed at $(date)"
 
 
