@@ -1,7 +1,7 @@
 resource "aws_s3_object" "cloudwatch_config" {
   bucket = var.cloudwatch_s3_bucket
   key    = var.cloudwatch_s3_path
-  source = "./cloudwatch-agent-config.json"  
+  source = "C:/Users/vrjav/Downloads/Desktop folders/Benevolate/terraform/resources/Cloudwatch/cloudwatch-agent-config.json"  
   acl    = "private"
 }
 
