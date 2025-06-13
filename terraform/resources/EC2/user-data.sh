@@ -142,3 +142,5 @@ echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
 # sudo -u ssm-user node index.js >> /mnt/efs/logs/node-app.log 2>&1 &
 
 # echo ">>> EC2 provisioning completed at $(date)"
+
+
