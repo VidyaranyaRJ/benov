@@ -8,6 +8,10 @@ echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
 echo "export PS1='$(hostname) \$ '" >> /etc/bashrc
 source /etc/bashrc
 
+
+# Ensure directories exist before logging
+mkdir -p /mnt/efs/logs
+
 exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> Starting EC2 provisioning at $(date)"
 
