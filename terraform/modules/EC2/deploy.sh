@@ -47,159 +47,159 @@ terraform init \
   -backend-config="encrypt=true"
 
 terraform plan -input=false -out=tfplan
-terraform apply -auto-approve tfplan
+# terraform apply -auto-approve tfplan
 
 # # === Destroy resources ===
-# terraform destroy -auto-approve
+terraform destroy -auto-approve
 
 
-cd ../../..
+# cd ../../..
 
-# ==== Extract EC2 Instance IDs ====
-echo "🔍 Extracting EC2 instance IDs..."
-aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
+# # ==== Extract EC2 Instance IDs ====
+# echo "🔍 Extracting EC2 instance IDs..."
+# aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
 
-INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
-if [ -z "$INSTANCE_IDS" ]; then
-  echo "❌ No EC2 instance IDs found."
-  exit 1
-fi
+# INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
+# if [ -z "$INSTANCE_IDS" ]; then
+#   echo "❌ No EC2 instance IDs found."
+#   exit 1
+# fi
 
-echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
-sleep 60
+# echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
+# sleep 60
 
-# ==== Deploy App via SSM ====
-echo "🚀 Deploying Node.js app on EC2s..."
-for INSTANCE_ID in $INSTANCE_IDS; do
-  echo "👉 Deploying to $INSTANCE_ID"
-  CMD_ID=$(aws ssm send-command \
-    --instance-ids "$INSTANCE_ID" \
-    --document-name "AWS-RunShellScript" \
-    --parameters 'commands=[
-      "curl -o /tmp/node-deploy.sh https://'"$TF_STATE_BUCKET"'.s3.'"$AWS_REGION"'.amazonaws.com/scripts/node-deploy.sh",
-      "chmod +x /tmp/node-deploy.sh",
-      "bash /tmp/node-deploy.sh"
-    ]' \
-    --region $AWS_REGION \
-    --query "Command.CommandId" \
-    --output text)
+# # ==== Deploy App via SSM ====
+# echo "🚀 Deploying Node.js app on EC2s..."
+# for INSTANCE_ID in $INSTANCE_IDS; do
+#   echo "👉 Deploying to $INSTANCE_ID"
+#   CMD_ID=$(aws ssm send-command \
+#     --instance-ids "$INSTANCE_ID" \
+#     --document-name "AWS-RunShellScript" \
+#     --parameters 'commands=[
+#       "curl -o /tmp/node-deploy.sh https://'"$TF_STATE_BUCKET"'.s3.'"$AWS_REGION"'.amazonaws.com/scripts/node-deploy.sh",
+#       "chmod +x /tmp/node-deploy.sh",
+#       "bash /tmp/node-deploy.sh"
+#     ]' \
+#     --region $AWS_REGION \
+#     --query "Command.CommandId" \
+#     --output text)
 
-  echo "✅ Command sent to $INSTANCE_ID: $CMD_ID"
+#   echo "✅ Command sent to $INSTANCE_ID: $CMD_ID"
 
-  for i in {1..30}; do
-    STATUS=$(aws ssm get-command-invocation \
-      --command-id "$CMD_ID" \
-      --instance-id "$INSTANCE_ID" \
-      --region "$AWS_REGION" \
-      --query "Status" \
-      --output text 2>/dev/null || echo "Pending")
+#   for i in {1..30}; do
+#     STATUS=$(aws ssm get-command-invocation \
+#       --command-id "$CMD_ID" \
+#       --instance-id "$INSTANCE_ID" \
+#       --region "$AWS_REGION" \
+#       --query "Status" \
+#       --output text 2>/dev/null || echo "Pending")
 
-    echo "Status on $INSTANCE_ID: $STATUS"
+#     echo "Status on $INSTANCE_ID: $STATUS"
 
-    if [[ "$STATUS" == "Success" ]]; then
-      echo "✅ Deployment succeeded on $INSTANCE_ID"
-      break
-    elif [[ "$STATUS" == "Failed" ]]; then
-      echo "❌ Deployment failed on $INSTANCE_ID"
-      break
-    fi
-    sleep 10
-  done
-done
+#     if [[ "$STATUS" == "Success" ]]; then
+#       echo "✅ Deployment succeeded on $INSTANCE_ID"
+#       break
+#     elif [[ "$STATUS" == "Failed" ]]; then
+#       echo "❌ Deployment failed on $INSTANCE_ID"
+#       break
+#     fi
+#     sleep 10
+#   done
+# done
 
 
-#########Cloudwatch ############
+# #########Cloudwatch ############
 
-# ==== CloudWatch Agent Debugging ====
-echo "📝 Checking and configuring CloudWatch Agent"
+# # ==== CloudWatch Agent Debugging ====
+# echo "📝 Checking and configuring CloudWatch Agent"
 
-# Check if CloudWatch Agent is installed
-if ! which amazon-cloudwatch-agent > /dev/null; then
-  echo "❌ CloudWatch Agent is not installed. Installing..."
-  yum install -y amazon-cloudwatch-agent
-else
-  echo "✅ CloudWatch Agent is installed."
-fi
+# # Check if CloudWatch Agent is installed
+# if ! which amazon-cloudwatch-agent > /dev/null; then
+#   echo "❌ CloudWatch Agent is not installed. Installing..."
+#   yum install -y amazon-cloudwatch-agent
+# else
+#   echo "✅ CloudWatch Agent is installed."
+# fi
 
-# Check if the CloudWatch Agent is running
-if systemctl is-active --quiet amazon-cloudwatch-agent; then
-  echo "✅ CloudWatch Agent is running."
-else
-  echo "❌ CloudWatch Agent is not running. Starting the service..."
-  sudo systemctl start amazon-cloudwatch-agent
-  sudo systemctl enable amazon-cloudwatch-agent
-  if systemctl is-active --quiet amazon-cloudwatch-agent; then
-    echo "✅ CloudWatch Agent started successfully."
-  else
-    echo "❌ Failed to start CloudWatch Agent."
-  fi
-fi
+# # Check if the CloudWatch Agent is running
+# if systemctl is-active --quiet amazon-cloudwatch-agent; then
+#   echo "✅ CloudWatch Agent is running."
+# else
+#   echo "❌ CloudWatch Agent is not running. Starting the service..."
+#   sudo systemctl start amazon-cloudwatch-agent
+#   sudo systemctl enable amazon-cloudwatch-agent
+#   if systemctl is-active --quiet amazon-cloudwatch-agent; then
+#     echo "✅ CloudWatch Agent started successfully."
+#   else
+#     echo "❌ Failed to start CloudWatch Agent."
+#   fi
+# fi
 
-# Check the agent's logs for potential issues
-echo "🛠️ Checking CloudWatch Agent logs for errors..."
-tail -n 50 /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log
+# # Check the agent's logs for potential issues
+# echo "🛠️ Checking CloudWatch Agent logs for errors..."
+# tail -n 50 /opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log
 
-# Check if the configuration file exists and is valid
-CONFIG_FILE="/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
-if [ -f "$CONFIG_FILE" ]; then
-  echo "✅ CloudWatch Agent configuration file exists at $CONFIG_FILE"
-else
-  echo "❌ CloudWatch Agent configuration file not found. Please check the config."
-  exit 1
-fi
+# # Check if the configuration file exists and is valid
+# CONFIG_FILE="/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+# if [ -f "$CONFIG_FILE" ]; then
+#   echo "✅ CloudWatch Agent configuration file exists at $CONFIG_FILE"
+# else
+#   echo "❌ CloudWatch Agent configuration file not found. Please check the config."
+#   exit 1
+# fi
 
-# Check CloudWatch log group and stream status
-echo "🔍 Verifying CloudWatch log group and stream..."
-LOG_GROUP="/efs/app/logs"
-LOG_STREAM="${INSTANCE_NAME:-unnamed}-${INSTANCE_ID}"
-aws logs describe-log-streams --log-group-name "$LOG_GROUP" --log-stream-name "$LOG_STREAM" --region $AWS_REGION || echo "❌ Log stream does not exist in CloudWatch."
-####################################
+# # Check CloudWatch log group and stream status
+# echo "🔍 Verifying CloudWatch log group and stream..."
+# LOG_GROUP="/efs/app/logs"
+# LOG_STREAM="${INSTANCE_NAME:-unnamed}-${INSTANCE_ID}"
+# aws logs describe-log-streams --log-group-name "$LOG_GROUP" --log-stream-name "$LOG_STREAM" --region $AWS_REGION || echo "❌ Log stream does not exist in CloudWatch."
+# ####################################
 
-# ==== Configure NGINX ====
-echo "⚙️ Configuring NGINX on EC2s..."
-for INSTANCE_ID in $INSTANCE_IDS; do
-  echo "Configuring NGINX on $INSTANCE_ID"
+# # ==== Configure NGINX ====
+# echo "⚙️ Configuring NGINX on EC2s..."
+# for INSTANCE_ID in $INSTANCE_IDS; do
+#   echo "Configuring NGINX on $INSTANCE_ID"
 
-  CMD_ID=$(aws ssm send-command \
-    --instance-ids "$INSTANCE_ID" \
-    --document-name "AWS-RunShellScript" \
-    --parameters 'commands=[
-      "sudo yum install -y nginx",
-      "sudo systemctl enable nginx",
-      "sudo systemctl start nginx",
-      "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'\''CONFIG'\''\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection '\''upgrade'\'';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
-      "sudo rm -f /etc/nginx/conf.d/default.conf",
-      "sudo nginx -t && sudo systemctl reload nginx"
-    ]' \
-    --region "$AWS_REGION" \
-    --query "Command.CommandId" \
-    --output text)
+#   CMD_ID=$(aws ssm send-command \
+#     --instance-ids "$INSTANCE_ID" \
+#     --document-name "AWS-RunShellScript" \
+#     --parameters 'commands=[
+#       "sudo yum install -y nginx",
+#       "sudo systemctl enable nginx",
+#       "sudo systemctl start nginx",
+#       "sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf <<'\''CONFIG'\''\nserver {\n  listen 80;\n  server_name _;\n  location / {\n    proxy_pass http://localhost:3000;\n    proxy_http_version 1.1;\n    proxy_set_header Upgrade \$http_upgrade;\n    proxy_set_header Connection '\''upgrade'\'';\n    proxy_set_header Host \$host;\n    proxy_cache_bypass \$http_upgrade;\n  }\n}\nCONFIG\"",
+#       "sudo rm -f /etc/nginx/conf.d/default.conf",
+#       "sudo nginx -t && sudo systemctl reload nginx"
+#     ]' \
+#     --region "$AWS_REGION" \
+#     --query "Command.CommandId" \
+#     --output text)
 
-  for i in {1..10}; do
-    STATUS=$(aws ssm get-command-invocation \
-      --command-id "$CMD_ID" \
-      --instance-id "$INSTANCE_ID" \
-      --region "$AWS_REGION" \
-      --query "Status" \
-      --output text 2>/dev/null || echo "Pending")
+#   for i in {1..10}; do
+#     STATUS=$(aws ssm get-command-invocation \
+#       --command-id "$CMD_ID" \
+#       --instance-id "$INSTANCE_ID" \
+#       --region "$AWS_REGION" \
+#       --query "Status" \
+#       --output text 2>/dev/null || echo "Pending")
 
-    echo "Nginx status on $INSTANCE_ID: $STATUS"
+#     echo "Nginx status on $INSTANCE_ID: $STATUS"
 
-    if [[ "$STATUS" == "Success" ]]; then
-      echo "✅ NGINX configured on $INSTANCE_ID"
-      break
-    elif [[ "$STATUS" == "Failed" ]]; then
-      echo "❌ NGINX config failed on $INSTANCE_ID"
-      break
-    fi
-    sleep 5
-  done
-done
+#     if [[ "$STATUS" == "Success" ]]; then
+#       echo "✅ NGINX configured on $INSTANCE_ID"
+#       break
+#     elif [[ "$STATUS" == "Failed" ]]; then
+#       echo "❌ NGINX config failed on $INSTANCE_ID"
+#       break
+#     fi
+#     sleep 5
+#   done
+# done
 
-# ==== Summary ====
-echo "====== Deployment Summary ======"
-echo "Total EC2 instances processed: $(echo $INSTANCE_IDS | wc -w)"
-echo "Deployed Node.js app to all instances"
-echo "Configured NGINX as reverse proxy"
-echo "✅ Done"
-echo "================================"
+# # ==== Summary ====
+# echo "====== Deployment Summary ======"
+# echo "Total EC2 instances processed: $(echo $INSTANCE_IDS | wc -w)"
+# echo "Deployed Node.js app to all instances"
+# echo "Configured NGINX as reverse proxy"
+# echo "✅ Done"
+# echo "================================"
