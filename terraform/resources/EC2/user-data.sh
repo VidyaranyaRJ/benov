@@ -61,6 +61,8 @@ cat > /etc/logrotate.d/nodejs-app <<EOF
 }
 EOF
 
+node /mnt/efs/code/nodejs-app/index.js >> /var/log/node-app.log 2>&1 &
+
 echo ">>> EC2 provisioning completed at $(date)"
 
 ################# FTP #################
