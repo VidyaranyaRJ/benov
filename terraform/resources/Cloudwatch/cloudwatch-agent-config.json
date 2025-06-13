@@ -1,19 +1,27 @@
 {
-  "schemaVersion": "2.2",
-  "description": "CloudWatch Agent Installation and Configuration",
-  "mainSteps": [
-    {
-      "action": "aws:runShellScript",
-      "name": "configure-cloudwatch-agent",
-      "inputs": {
-        "runCommand": [
-          "mkdir -p ${ec2_instance_path}", 
-          "aws s3 cp s3://${cloudwatch_s3_bucket}/${cloudwatch_s3_path} ${ec2_instance_path}/amazon-cloudwatch-agent.json", 
-          "sudo ${ec2_instance_path}/bin/amazon-cloudwatch-agent-ctl -a stop",
-          "sudo ${ec2_instance_path}/bin/amazon-cloudwatch-agent-ctl -a start"
+  "agent": {
+    "enabled": true,
+    "run_as_user": "root",
+    "region": "${region}"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/syslog",
+            "log_group_name": "syslog",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%b %d %H:%M:%S"
+          },
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "nginx-access-logs",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%d/%b/%Y:%H:%M:%S"
+          }
         ]
       }
     }
-  ]
+  }
 }
-
