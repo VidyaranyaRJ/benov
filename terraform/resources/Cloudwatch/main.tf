@@ -1,12 +1,10 @@
 # File: terraform/resources/Cloudwatch/main.tf
 
 resource "aws_s3_object" "cloudwatch_config" {
-  bucket  = var.cloudwatch_s3_bucket
-  key     = var.cloudwatch_s3_path
-  content = templatefile("${path.module}/cloudwatch-agent-config.json", {
-    region = var.region
-  })
-  acl     = "private"
+  bucket = "vj-test-benvolate"
+  key    = "Cloudwatch/cloudwatch-agent-config.json"
+  source = "${path.module}/cloudwatch-agent-config.json"  # Use relative path
+  acl    = "private"
 }
 
 
