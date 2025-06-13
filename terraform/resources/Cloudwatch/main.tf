@@ -18,7 +18,7 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   "mainSteps": [
     {
       "action": "aws:runShellScript",
-      "name": "configure-cloudwatch-agent",  # Change this to a simpler, valid name
+      "name": "configure-cloudwatch-agent",
       "inputs": {
         "runCommand": [
           "#!/bin/bash",
@@ -61,6 +61,7 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
 DOC
   depends_on = [aws_s3_object.cloudwatch_config]
 }
+
 
 
 
