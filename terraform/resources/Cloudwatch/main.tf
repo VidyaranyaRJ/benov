@@ -6,8 +6,9 @@ resource "aws_s3_object" "cloudwatch_config" {
   content = templatefile("${path.module}/cloudwatch-agent-config.json", {
     region = var.region
   })
-  acl = "private"
+  acl     = "private"
 }
+
 
 resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
   name          = "CloudWatchAgentConfig-${random_id.doc_suffix.hex}"
