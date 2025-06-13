@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "2.2",
+  "description": "CloudWatch Agent Installation and Configuration",
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "configure-cloudwatch-agent",
+      "inputs": {
+        "runCommand": [
+          "mkdir -p ${ec2_instance_path}", 
+          "aws s3 cp s3://${cloudwatch_s3_bucket}/${cloudwatch_s3_path} ${ec2_instance_path}/amazon-cloudwatch-agent.json", 
+          "sudo ${ec2_instance_path}/bin/amazon-cloudwatch-agent-ctl -a stop",
+          "sudo ${ec2_instance_path}/bin/amazon-cloudwatch-agent-ctl -a start"
+        ]
+      }
+    }
+  ]
+}
+
