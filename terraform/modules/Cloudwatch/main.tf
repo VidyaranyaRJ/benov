@@ -30,8 +30,8 @@ module "cloudwatch" {
     # data.terraform_remote_state.ec2.outputs.module_instance_4,
     # data.terraform_remote_state.ec2.outputs.module_instance_5
   ]
-  cloudwatch_s3_path = "Cloudwatch/cloudwatch-agent-config.json"
+  cloudwatch_s3_path   = "Cloudwatch/cloudwatch-agent-config.json"
   cloudwatch_s3_bucket = "vj-test-benvolate"
-  region = "us-east-2"
+  region              = "us-east-2"
 }
 
