@@ -16,5 +16,5 @@ variable "cloudwatch_s3_path" {
 variable "region" {
   description = "The AWS region where the CloudWatch Agent will be running."
   type        = string
-  default     = "us-east-1"  # Default region
+  default     = "us-east-2"  # Default region
 }
