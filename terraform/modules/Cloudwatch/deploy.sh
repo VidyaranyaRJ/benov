@@ -64,15 +64,23 @@ echo ">>> CloudWatch Agent Debug Section <<<"
 echo "======================================"
 
 # Get SSM document name from Terraform output
-echo ">>> Getting SSM document name..."
-SSM_DOCUMENT=$(terraform -chdir="$TERRAFORM_DIR" output -raw ssm_document_name)
-
-# Check if SSM document is empty or invalid
+# Correct way to get the SSM document name
+SSM_DOCUMENT=$(terraform -chdir="$TERRAFORM_DIR" output -raw ssm_document_name 2>/dev/null)
 if [ -z "$SSM_DOCUMENT" ]; then
     echo "ERROR: SSM document name not found in Terraform output!"
     exit 1
 fi
 echo "SSM Document: $SSM_DOCUMENT"
+
+# Correct way to send the command
+aws ssm send-command \
+  --document-name "$SSM_DOCUMENT" \
+  --targets "Key=instanceIds,Values=$INSTANCE_ID" \
+  --query 'Command.CommandId' \
+  --output text
+
+
+
 
 # Check if S3 config file exists
 echo ">>> Checking S3 configuration file..."
