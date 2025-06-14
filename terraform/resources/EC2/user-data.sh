@@ -116,21 +116,26 @@
 
 
 
-# EC2 User Data script for Node.js app deployment using EFS and S3-based delivery
-
 set -e
 
-# === Fetch EC2 Metadata using IMDSv2 (early) ===
+# === Logging Setup First ===
+mkdir -p /mnt/efs/logs
+exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
+echo ">>> Starting EC2 provisioning at $(date)"
+
+# === Fetch EC2 Metadata using IMDSv2 ===
 TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
 METADATA_BASE="http://169.254.169.254/latest/meta-data"
 AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone")
 PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
-export AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
+AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
+export AWS_REGION
 
-echo "AZ: $AZ"
-echo "AWS_REGION: $AWS_REGION"
-echo "PUBLIC_IP: $PUBLIC_IPV4"
+echo "AZ: ${AZ}"
+echo "AWS_REGION: ${AWS_REGION}"
+echo "PUBLIC_IP: ${PUBLIC_IPV4}"
 
 # === Host Setup ===
 hostnamectl set-hostname "${hostname}"
@@ -138,10 +143,7 @@ echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
 echo "export PS1='$(hostname) \$ '" >> /etc/bashrc
 source /etc/bashrc
 
-# Ensure directories exist before logging
-mkdir -p /mnt/efs/logs
-exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
-echo ">>> Starting EC2 provisioning at $(date)"
+
 
 # === System Preparation ===
 dnf update -y
