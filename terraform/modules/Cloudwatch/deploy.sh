@@ -25,7 +25,6 @@ terraform -chdir="$TERRAFORM_DIR" apply -auto-approve tfplan
 # terraform -chdir="$TERRAFORM_DIR" destroy -auto-approve
 
 
-
 # === CloudWatch Debug Section ===
 echo ""
 echo "======================================"
