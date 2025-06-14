@@ -16,6 +16,7 @@ resource "aws_instance" "benevolate_ec2_instance" {
     efs3_dns_name = var.efs3_dns_name
     hostname      = var.host_name
     AZ            = "dummy"
+    AWS_REGION    = "dummy"
   })
 
   tags = {
