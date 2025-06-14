@@ -53,3 +53,14 @@ variable "associate_public_ip_address" {
 variable "key_name" {
   type = string
 }
+
+
+
+variable "az" {
+  type = string
+}
+
+
+variable "region" {
+  type = string
+}

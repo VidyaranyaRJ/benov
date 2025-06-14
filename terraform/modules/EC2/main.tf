@@ -73,6 +73,8 @@ module "instance_1" {
   host_name                   = local.hostname_instance_1
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
+  az = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"].availability_zone
+  region = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"].region
 }
 
 
