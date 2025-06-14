@@ -88,10 +88,10 @@ resource "aws_ssm_association" "cloudwatch_association" {
     values = [each.value]
   }
 
-  # Force re-run when config changes
-  parameters = {
-    "commands" = ["echo 'Config updated: ${aws_s3_object.cloudwatch_config.etag}'"]
-  }
+  # # Force re-run when config changes
+  # parameters = {
+  #   "commands" = ["echo 'Config updated: ${aws_s3_object.cloudwatch_config.etag}'"]
+  # }
   
   # Run immediately
   schedule_expression = "rate(30 days)"
