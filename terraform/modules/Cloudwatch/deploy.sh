@@ -189,7 +189,13 @@ if [ -z "$SSM_DOCUMENT" ]; then
     echo "ERROR: SSM document name not found in Terraform output!"
     exit 1
 fi
-echo "SSM Document: $SSM_DOCUMENT"
+echo "DEBUG: SSM_DOCUMENT is '$SSM_DOCUMENT'"
+
+aws ssm send-command \
+  --document-name "$SSM_DOCUMENT" \
+  --targets "Key=instanceIds,Values=$INSTANCE_ID" \
+  --query 'Command.CommandId' \
+  --output text
 
 # Check if S3 config file exists
 if aws s3 ls "s3://$TF_STATE_BUCKET/Cloudwatch/cloudwatch-agent-config.json" >/dev/null 2>&1; then
