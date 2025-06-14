@@ -68,6 +68,21 @@ nohup node /mnt/efs/code/nodejs-app/index.js >> /var/log/node-app.log 2>&1 &
 
 echo ">>> EC2 provisioning completed at $(date)"
 
+
+
+
+# === Fetch EC2 Metadata using IMDSv2 ===
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
+
+METADATA_BASE="http://169.254.169.254/latest/meta-data"
+PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
+AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone")
+AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
+
+
+export AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
+
 ################# FTP #################
 # === FTP Setup (vsftpd using EFS path) ===
 sudo dnf install -y vsftpd
@@ -80,7 +95,7 @@ cat >> /etc/vsftpd/vsftpd.conf <<EOF
 pasv_enable=YES
 pasv_min_port=21000
 pasv_max_port=21050
-pasv_address=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "0.0.0.0")
+pasv_address=${PUBLIC_IPV4}
 pasv_addr_resolve=YES
 local_enable=YES
 write_enable=YES
@@ -91,9 +106,3 @@ EOF
 systemctl enable vsftpd
 systemctl restart vsftpd
 echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
-
-
-
-
-
-
