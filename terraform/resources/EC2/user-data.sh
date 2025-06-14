@@ -96,8 +96,7 @@ pasv_enable=YES
 pasv_min_port=21000
 pasv_max_port=21050
 
-PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
-echo "pasv_address=${PUBLIC_IPV4}" >> /etc/vsftpd/vsftpd.conf
+
 
 pasv_addr_resolve=YES
 local_enable=YES
