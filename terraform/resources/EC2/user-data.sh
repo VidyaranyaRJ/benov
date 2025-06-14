@@ -135,7 +135,7 @@ export AWS_REGION
 
 echo "AZ: ${AZ}"
 echo "AWS_REGION: ${AWS_REGION}"
-echo "PUBLIC_IP: ${PUBLIC_IPV4}"
+echo "PUBLIC_IP: $${PUBLIC_IPV4}"
 
 # === Host Setup ===
 hostnamectl set-hostname "${hostname}"
