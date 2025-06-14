@@ -6,7 +6,6 @@ resource "aws_s3_object" "cloudwatch_config" {
   etag   = filemd5("${path.module}/cloudwatch-agent-config.json")
 }
 
-
 resource "random_id" "doc_suffix" {
   byte_length = 4
 }
@@ -46,8 +45,14 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
             "aws s3 cp s3://vj-test-benvolate/Cloudwatch/cloudwatch-agent-config.json /tmp/amazon-cloudwatch-agent.json",
             "sudo mv /tmp/amazon-cloudwatch-agent.json /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
             "",
-            "# Set proper permissions",
-            "sudo chown cwagent:cwagent /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+            "# Set proper permissions - check if cwagent user exists, otherwise use root",
+            "if id cwagent >/dev/null 2>&1; then",
+            "  echo 'Setting permissions for cwagent user'",
+            "  sudo chown cwagent:cwagent /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+            "else",
+            "  echo 'cwagent user not found, setting permissions for root'",
+            "  sudo chown root:root /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
+            "fi",
             "sudo chmod 644 /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json",
             "",
             "# Stop existing agent if running",
@@ -64,6 +69,15 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
             "# Verify agent is running",
             "echo 'Verifying CloudWatch Agent status'",
             "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status",
+            "",
+            "# Additional verification - check if agent process is running",
+            "if pgrep -f amazon-cloudwatch-agent >/dev/null; then",
+            "  echo '✓ CloudWatch Agent process is running'",
+            "else",
+            "  echo '✗ CloudWatch Agent process not found'",
+            "  exit 1",
+            "fi",
+            "",
             "echo 'CloudWatch Agent installation and configuration completed successfully'"
           ]
         }
@@ -77,7 +91,6 @@ resource "aws_ssm_document" "benevolate_cloudwatch_agent_document" {
 
 
 
-
 resource "aws_ssm_association" "cloudwatch_association" {
   for_each         = toset(var.ec2_instance_ids)
   name             = aws_ssm_document.benevolate_cloudwatch_agent_document.name
@@ -87,13 +100,8 @@ resource "aws_ssm_association" "cloudwatch_association" {
     key    = "InstanceIds"
     values = [each.value]
   }
-
-  # # Force re-run when config changes
-  # parameters = {
-  #   "commands" = ["echo 'Config updated: ${aws_s3_object.cloudwatch_config.etag}'"]
-  # }
   
-  # Run immediately
+  # Run every 30 days to ensure agent stays configured
   schedule_expression = "rate(30 days)"
   
   depends_on = [
