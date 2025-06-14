@@ -201,7 +201,7 @@ cat >> /etc/vsftpd/vsftpd.conf <<EOF
 pasv_enable=YES
 pasv_min_port=21000
 pasv_max_port=21050
-pasv_address=${PUBLIC_IPV4}
+pasv_address=$${PUBLIC_IPV4}
 pasv_addr_resolve=YES
 local_enable=YES
 write_enable=YES
