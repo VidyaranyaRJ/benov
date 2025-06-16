@@ -763,6 +763,6 @@ app.get('/health', (req, res) => {
 
 // Start the server
 app.listen(port, () => {
-  logToFileAndConsole(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
+  writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
   console.log(`Server running at http://localhost:${port}`);
 });
