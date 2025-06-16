@@ -151,6 +151,18 @@ npm install
 
 npm install dotenv
 
+
+# Setup log directory
+YEAR=$(date +%Y)
+MONTH=$(date +%m)
+DAY=$(date +%d)
+HOSTNAME=$(hostname)
+LOG_DIR="${EFS_MOUNT}/logs/${MONTH}-${DAY}-${YEAR}/${HOSTNAME}"
+mkdir -p "${LOG_DIR}"
+export NODE_APP_LOG_PATH="${LOG_DIR}/node-app.log"
+echo "Log path set to ${NODE_APP_LOG_PATH}"
+
+
 # Prepare for deployment
 echo "Preparing for deployment..."
 if [ -d "${DEPLOY_DIR}" ]; then
@@ -181,18 +193,6 @@ if ! command -v pm2 &> /dev/null; then
   echo "Installing PM2..."
   npm install -g pm2
 fi
-
-
-# Setup structured log directory
-MONTH=$(date +%-m)
-DAY=$(date +%-d)
-YEAR=$(date +%Y)
-HOSTNAME=$(hostname)
-LOG_DIR="/mnt/efs/logs/${MONTH}/${DAY}/${YEAR}/${HOSTNAME}"
-mkdir -p "${LOG_DIR}"
-LOG_FILE="${LOG_DIR}/node-app.log"
-export NODE_APP_LOG_PATH="${LOG_FILE}"
-exec >> "${LOG_FILE}" 2>&1
 
 
 # Start or restart the application with PM2
