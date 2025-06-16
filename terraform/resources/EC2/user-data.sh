@@ -260,6 +260,11 @@ mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
 mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
 mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
 
+# === Fix permissions for app logging ===
+chown -R ssm-user:ssm-user /mnt/efs/logs
+chmod -R 755 /mnt/efs/{logs,code,data}
+
+
 # === Make EFS mounts persistent ===
 cat >> /etc/fstab <<EOF
 ${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0
