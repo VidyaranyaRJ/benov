@@ -76,7 +76,7 @@ for INSTANCE_ID in $INSTANCE_IDS; do
     --instance-ids "$INSTANCE_ID" \
     --document-name "AWS-RunShellScript" \
     --parameters 'commands=[
-      "curl -o /tmp/node-deploy.sh https://'"$TF_STATE_BUCKET"'.s3.'"$AWS_REGION"'.amazonaws.com/scripts/node-deploy.sh",
+      "aws s3 cp s3://'"$TF_STATE_BUCKET"'/scripts/node-deploy.sh /tmp/node-deploy.sh",
       "chmod +x /tmp/node-deploy.sh",
       "bash /tmp/node-deploy.sh"
     ]' \
