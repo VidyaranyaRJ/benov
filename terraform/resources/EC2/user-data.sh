@@ -528,7 +528,7 @@ echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
 # === Create daily log file with proper permissions ===
 TODAY=$(date +%m-%d-%Y)
 LOG_DIR="/mnt/efs/logs/$TODAY/$hostname"
-LOG_FILE="${LOG_DIR}/node-app.log"
+LOG_FILE="$LOG_DIR/node-app.log"
 
 mkdir -p "$LOG_DIR"
 touch "$LOG_FILE"
