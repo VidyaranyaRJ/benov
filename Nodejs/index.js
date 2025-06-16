@@ -5,34 +5,12 @@ const path = require('path');
 // Load environment variables from .env
 require('dotenv').config();
 
+const writeLog = require('./logger'); 
 const app = express();
 const port = process.env.PORT || 3000;
-const LOG_PATH = process.env.LOG_PATH || '/mnt/efs/logs';
-const LOG_FILE = path.join(LOG_PATH, 'node-app.log');
 
 // Get hostname once at startup
 const HOSTNAME = os.hostname();
-
-// Ensure log directory exists
-if (!fs.existsSync(LOG_PATH)) {
-  fs.mkdirSync(LOG_PATH, { recursive: true });
-}
-
-// Enhanced log function with ISO timestamp format (matches CloudWatch config)
-function logToFileAndConsole(message, level = 'INFO') {
-  const timestamp = new Date().toISOString();
-  const logLine = `${timestamp} [${level}] [${HOSTNAME}] ${message}`;
-  
-  // Log to file (synchronous to ensure log order)
-  try {
-    fs.appendFileSync(LOG_FILE, logLine + '\n');
-  } catch (err) {
-    console.error('Failed to write to log file:', err);
-  }
-  
-  // Log to console (for CloudWatch) - this will appear in node-app-logs
-  console.log(logLine);
-}
 
 // Track page visits
 let visitCount = 0;
@@ -49,7 +27,7 @@ app.use((req, res, next) => {
   const method = req.method;
   const url = req.url;
   
-  logToFileAndConsole(`${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`, 'ACCESS');
+  writeLog(`[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`);
   next();
 });
 
@@ -63,7 +41,7 @@ app.get('/', (req, res) => {
                    'unknown';
   uniqueVisitors.add(clientIp);
   
-  logToFileAndConsole(`HOME_PAGE_LOADED - Visit #${visitCount} - Unique visitors: ${uniqueVisitors.size} - IP: ${clientIp}`, 'PAGE_VIEW');
+  writeLog(`[PAGE_VIEW] HOME_PAGE_LOADED - Visit #${visitCount} - Unique visitors: ${uniqueVisitors.size} - IP: ${clientIp}`);
   
   res.send(`
     <!DOCTYPE html>
@@ -299,7 +277,7 @@ app.get('/time', (req, res) => {
   
   // Log the time request (reduced frequency to avoid log spam)
   if (seconds % 10 === 0) { // Log only every 10 seconds
-    logToFileAndConsole(`TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`, 'TIME_API');
+    writeLog(`[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`);
   }
   
   res.json({
@@ -319,7 +297,7 @@ app.post('/manual-refresh', (req, res) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  logToFileAndConsole(`MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`, 'USER_ACTION');
+  writeLog(`[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`);
   
   res.json({ status: 'refresh logged', timestamp: new Date().toISOString() });
 });
@@ -332,7 +310,7 @@ app.post('/page-focus', (req, res) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  logToFileAndConsole(`PAGE_FOCUS - User returned to page - IP: ${clientIp}`, 'USER_ACTION');
+  writeLog(`[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`);
   
   res.json({ status: 'focus logged', timestamp: new Date().toISOString() });
 });
@@ -345,12 +323,20 @@ app.get('/logs', (req, res) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  logToFileAndConsole(`LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`, 'ADMIN');
+  writeLog(`[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`);
+  
+  // Get current log file path (same as logger.js)
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const year = now.getFullYear();
+  const logDir = `/mnt/efs/logs/${month}-${day}-${year}/${HOSTNAME}`;
+  const logFile = path.join(logDir, 'node-app.log');
   
   // Read recent log entries
-  fs.readFile(LOG_FILE, 'utf8', (err, data) => {
+  fs.readFile(logFile, 'utf8', (err, data) => {
     if (err) {
-      logToFileAndConsole(`LOG_READ_ERROR - ${err.message}`, 'ERROR');
+      writeLog(`[ERROR] LOG_READ_ERROR - ${err.message}`);
       return res.status(500).send('Error reading logs');
     }
     
@@ -390,6 +376,8 @@ app.get('/logs', (req, res) => {
           .log-entry.SYSTEM { border-left-color: #ff5722; background: rgba(255, 87, 34, 0.1); }
           .log-entry.HEALTH { border-left-color: #8bc34a; background: rgba(139, 195, 74, 0.1); }
           .log-entry.TIME_API { border-left-color: #607d8b; background: rgba(96, 125, 139, 0.05); }
+          .log-entry.PAGE_VIEW { border-left-color: #e91e63; background: rgba(233, 30, 99, 0.1); }
+          .log-entry.ADMIN { border-left-color: #795548; background: rgba(121, 85, 72, 0.1); }
           .header { 
             background: #333; 
             padding: 20px; 
@@ -448,14 +436,14 @@ app.get('/logs', (req, res) => {
           <div style="margin-top: 15px;">
             <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Now</button>
             <button class="refresh-btn" onclick="window.close()">❌ Close</button>
-            <button class="refresh-btn" onclick="clearLogs()" class="danger">🗑️ Clear Logs</button>
+            <button class="refresh-btn danger" onclick="clearLogs()">🗑️ Clear Logs</button>
           </div>
         </div>
         <div class="log-container">
           ${lines.map(line => {
-            const level = line.match(/\\[(.*?)\\]/)?.[1] || 'INFO';
+            const levelMatch = line.match(/\\[(.*?)\\]/);
+            const level = levelMatch ? levelMatch[1] : 'INFO';
             const timestamp = line.match(/^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z)/)?.[1] || '';
-            const message = line.replace(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z/, '').trim();
             return '<div class="log-entry ' + level + '" title="' + timestamp + '">' + line + '</div>';
           }).join('')}
         </div>
@@ -506,16 +494,24 @@ app.post('/clear-logs', (req, res) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  logToFileAndConsole(`LOGS_CLEARED - User cleared logs - IP: ${clientIp}`, 'ADMIN');
+  writeLog(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
+  
+  // Get current log file path (same as logger.js)
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const year = now.getFullYear();
+  const logDir = `/mnt/efs/logs/${month}-${day}-${year}/${HOSTNAME}`;
+  const logFile = path.join(logDir, 'node-app.log');
   
   // Clear the log file
-  fs.writeFile(LOG_FILE, '', (err) => {
+  fs.writeFile(logFile, '', (err) => {
     if (err) {
-      logToFileAndConsole(`LOG_CLEAR_ERROR - ${err.message}`, 'ERROR');
+      writeLog(`[ERROR] LOG_CLEAR_ERROR - ${err.message}`);
       return res.status(500).json({ error: 'Failed to clear logs' });
     }
     
-    logToFileAndConsole(`LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`, 'SYSTEM');
+    writeLog(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
     res.json({ status: 'logs cleared', timestamp: new Date().toISOString() });
   });
 });
@@ -528,7 +524,7 @@ app.use((err, req, res, next) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  logToFileAndConsole(`ERROR - ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`, 'ERROR');
+  writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
   res.status(500).json({ 
     error: 'Something went wrong!', 
     timestamp: new Date().toISOString() 
@@ -549,7 +545,7 @@ app.get('/health', (req, res) => {
   // Only log health checks every 5 minutes to avoid spam
   const now = Date.now();
   if (!app.lastHealthLog || now - app.lastHealthLog > 300000) {
-    logToFileAndConsole(`HEALTH_CHECK - Uptime: ${Math.floor(uptime)}s - Memory: ${Math.round(memUsage.rss / 1024 / 1024)}MB - Load: ${loadAvg[0].toFixed(2)} - IP: ${clientIp}`, 'HEALTH');
+    writeLog(`[HEALTH] HEALTH_CHECK - Uptime: ${Math.floor(uptime)}s - Memory: ${Math.round(memUsage.rss / 1024 / 1024)}MB - Load: ${loadAvg[0].toFixed(2)} - IP: ${clientIp}`);
     app.lastHealthLog = now;
   }
   
@@ -739,11 +735,10 @@ app.get('/health', (req, res) => {
               </div>
               <div class="metric">
                 <span>Memory Usage:</span>
-                <span>${Math.round(((healthData.system.totalMemory - healthData.system.freeMemory) / healthData.system.totalMemory) * 100)}%</span>
+                 <span>${Math.round(((healthData.system.totalMemory - healthData.system.freeMemory) / healthData.system.totalMemory) * 100)}%</span>
               </div>
             </div>
           </div>
-          
           <div style="margin-top: 30px;">
             <a href="/" class="back-btn">🏠 Back to Home</a>
             <button class="back-btn" onclick="location.reload()">🔄 Refresh</button>
@@ -753,7 +748,6 @@ app.get('/health', (req, res) => {
             Last updated: ${healthData.timestamp}
           </div>
         </div>
-        
         <script>
           // Auto-refresh every 30 seconds
           setTimeout(() => {
@@ -765,6 +759,7 @@ app.get('/health', (req, res) => {
     `);
   }
 });
+
 
 // Start the server
 app.listen(port, () => {
