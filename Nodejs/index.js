@@ -7,7 +7,7 @@ require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
-const LOG_PATH = process.env.LOG_PATH || '/var/log';
+const LOG_PATH = process.env.LOG_PATH || '/mnt/efs/logs';
 const LOG_FILE = path.join(LOG_PATH, 'node-app.log');
 
 // Get hostname once at startup
