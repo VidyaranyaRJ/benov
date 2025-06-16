@@ -182,6 +182,19 @@ if ! command -v pm2 &> /dev/null; then
   npm install -g pm2
 fi
 
+
+# Setup structured log directory
+MONTH=$(date +%-m)
+DAY=$(date +%-d)
+YEAR=$(date +%Y)
+HOSTNAME=$(hostname)
+LOG_DIR="/mnt/efs/logs/${MONTH}/${DAY}/${YEAR}/${HOSTNAME}"
+mkdir -p "${LOG_DIR}"
+LOG_FILE="${LOG_DIR}/node-app.log"
+export NODE_APP_LOG_PATH="${LOG_FILE}"
+exec >> "${LOG_FILE}" 2>&1
+
+
 # Start or restart the application with PM2
 cd ${DEPLOY_DIR}
 if pm2 list | grep -q "nodejs-app"; then
