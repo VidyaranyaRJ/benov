@@ -73,6 +73,7 @@ resource "aws_lb_listener" "benevoalte_https" {
 
 
 
+
 resource "aws_lb_listener" "benevolate_http_redirect" {
   load_balancer_arn = aws_lb.benevolate_application_load_balancer.arn
   port              = var.aws_lb_listener_port
