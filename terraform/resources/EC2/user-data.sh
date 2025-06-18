@@ -296,6 +296,7 @@ TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-m
 METADATA_BASE="http://169.254.169.254/latest/meta-data"
 PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
 
+
 if [ -z "$AWS_REGION" ]; then
   AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone" | sed 's/[a-z]$//')
 fi

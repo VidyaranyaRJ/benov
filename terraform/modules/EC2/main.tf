@@ -68,7 +68,7 @@ locals {
 module "instance_1" {
   source                      = "../../resources/EC2"
   ami                         = local.ami
-  subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
+  subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
   sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   ec2_tag_name                = local.ec2_tag_name_tag1
   efs1_dns_name               = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
