@@ -235,7 +235,8 @@ for INSTANCE_ID in $INSTANCE_IDS; do
   echo "👉 Deploying to $INSTANCE_ID at $PUBLIC_IPV4"
   
   # Ensure your SSH private key file is available and set the correct permissions for SSH
-  ssh -i "./vj-Benevolate.pem" ec2-user@$PUBLIC_IPV4 << 'EOF'
+  # chmod 400 "./vj-Benevolate.pem"
+  ssh -i vj-Benevolate.pem ec2-user@$PUBLIC_IPV4 << 'EOF'
 
     echo "Starting deployment on EC2..."
     aws s3 cp s3://$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh
