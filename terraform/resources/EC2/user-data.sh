@@ -169,17 +169,17 @@ mount_efs_with_retry() {
     local retry_count=0
 
     while [ $retry_count -lt $max_retries ]; do
-        if mount -t nfs4 -o nfsvers=4.1,tls "${dns_name}:/" "${mount_point}"; then
-            echo "✅ Successfully mounted $dns_name to $mount_point"
-            return 0
-        else
-            retry_count=$((retry_count + 1))
-            echo "⚠️ Mount attempt $retry_count failed for $dns_name, retrying in 10 seconds..."
-            sleep 10
-        fi
+      if mount -t nfs4 -o nfsvers=4.1,tls "${dns_name}:/" "${mount_point}"; then
+          echo "SUCCESS: Successfully mounted $dns_name to $mount_point"
+          return 0
+      else
+          retry_count=$((retry_count + 1))
+          echo "WARNING: Mount attempt $retry_count failed for $dns_name, retrying in 10 seconds..."
+          sleep 10
+      fi
     done
 
-    echo "❌ Failed to mount $dns_name after $max_retries attempts"
+    echo "FAIL: Failed to mount $dns_name after $max_retries attempts"
     return 1
 }
 
