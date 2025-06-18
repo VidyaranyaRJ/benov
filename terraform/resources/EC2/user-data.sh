@@ -232,7 +232,7 @@ S3_KEY="nodejs/nodejs-app.zip"
 
 mkdir -p "$TEMP_DIR"
 
-aws s3 cp "s3://${S3_BUCKET}/${S3_KEY}" "$TEMP_DIR/app.zip"
+aws s3 cp "s3://$S3_BUCKET/$S3_KEY" "$TEMP_DIR/app.zip"
 unzip -o "$TEMP_DIR/app.zip" -d "$TEMP_DIR"
 rm -rf "$APP_DIR"
 mv "$TEMP_DIR" "$APP_DIR"
