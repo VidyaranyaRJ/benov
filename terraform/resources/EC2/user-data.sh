@@ -127,15 +127,13 @@ echo ">>> Starting EC2 provisioning at $(date)"
 # === Fetch EC2 Metadata using IMDSv2 ===
 TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-
 METADATA_BASE="http://169.254.169.254/latest/meta-data"
 AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone")
 PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
 AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
+hostname=$(hostname)
 
-export AZ
-export AWS_REGION
-export PUBLIC_IPV4
+export AZ AWS_REGION PUBLIC_IPV4 hostname
 
 echo "✅ EC2 is running in Availability Zone: $AZ"
 echo "✅ Derived AWS Region: $AWS_REGION"
@@ -153,25 +151,23 @@ dnf update -y
 dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd
 runuser -l ssm-user -c 'npm install -g pm2'
 
+# === Assign EFS DNS names passed from Terraform ===
+CODE_DNS="${efs1_dns_name}"
+DATA_DNS="${efs2_dns_name}"
+LOGS_DNS="${efs3_dns_name}"
+
 # === Create EFS Mount Points ===
-echo ">>> Creating EFS mount points..."
 mkdir -p /mnt/efs/{code,data,logs}
 
-# === Mount EFS Filesystems ===
-echo ">>> Mounting EFS filesystems..."
-
-# Wait for network and DNS to be ready
-sleep 10
-
-# Mount with retry logic
+# === Mount EFS Filesystems with Retry ===
 mount_efs_with_retry() {
     local dns_name=$1
     local mount_point=$2
     local max_retries=5
     local retry_count=0
-    
+
     while [ $retry_count -lt $max_retries ]; do
-        if mount -t nfs4 -o nfsvers=4.1,rsize=1048576,wsize=1048576,hard,intr,timeo=600 $dns_name:/ $mount_point; then
+        if mount -t nfs4 -o nfsvers=4.1,tls "${dns_name}:/" "${mount_point}"; then
             echo "✅ Successfully mounted $dns_name to $mount_point"
             return 0
         else
@@ -180,60 +176,52 @@ mount_efs_with_retry() {
             sleep 10
         fi
     done
-    
+
     echo "❌ Failed to mount $dns_name after $max_retries attempts"
     return 1
 }
 
-# Mount each EFS
-mount_efs_with_retry "${efs1_dns_name}" "/mnt/efs/code"
-mount_efs_with_retry "${efs2_dns_name}" "/mnt/efs/data"
-mount_efs_with_retry "${efs3_dns_name}" "/mnt/efs/logs"
+echo ">>> Mounting EFS filesystems..."
+mount_efs_with_retry "$CODE_DNS" /mnt/efs/code
+mount_efs_with_retry "$DATA_DNS" /mnt/efs/data
+mount_efs_with_retry "$LOGS_DNS" /mnt/efs/logs
 
 # === Verify Mounts ===
-echo ">>> Verifying EFS mounts..."
-df -h -t nfs4
-mount | grep nfs4
+df -h -t nfs4 || echo "⚠️ No NFS mounts found"
+mount | grep nfs4 || echo "⚠️ No NFS4 entries in mount"
 
-# === Now Setup EFS Logging (after mount) ===
-echo ">>> Setting up EFS logging..."
+# === Enable EFS Logging ===
 exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
 echo ">>> EFS logging now active at $(date)"
 
-# === Fix permissions for app ===
-echo ">>> Setting EFS permissions..."
+# === Fix permissions ===
 chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
 chmod -R 755 /mnt/efs/{logs,data,code}
 
-# === Make EFS mounts persistent ===
-echo ">>> Adding EFS mounts to /etc/fstab..."
+# === Add persistent mounts ===
 cat >> /etc/fstab <<EOF
-${efs1_dns_name}:/ /mnt/efs/code nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,intr,timeo=600,_netdev 0 0
-${efs2_dns_name}:/ /mnt/efs/data nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,intr,timeo=600,_netdev 0 0
-${efs3_dns_name}:/ /mnt/efs/logs nfs4 nfsvers=4.1,rsize=1048576,wsize=1048576,hard,intr,timeo=600,_netdev 0 0
+${CODE_DNS}:/ /mnt/efs/code nfs4 nfsvers=4.1,_netdev,tls 0 0
+${DATA_DNS}:/ /mnt/efs/data nfs4 nfsvers=4.1,_netdev,tls 0 0
+${LOGS_DNS}:/ /mnt/efs/logs nfs4 nfsvers=4.1,_netdev,tls 0 0
 EOF
 
-# === Verify fstab entries ===
-echo ">>> Verifying fstab entries..."
-cat /etc/fstab | grep efs
+echo ">>> fstab entries:"
+cat /etc/fstab | grep amazonaws || echo "⚠️ No EFS entries found in fstab"
 
-# === Create Node.js Application Environment ===
-echo ">>> Setting up Node.js application..."
+# === Application environment ===
 mkdir -p /mnt/efs/code/nodejs-app
-
 cat > /mnt/efs/code/nodejs-app/.env <<EOF
 NODE_ENV=production
 PORT=3000
 LOG_LEVEL=info
 AWS_REGION=${AWS_REGION}
 AVAILABILITY_ZONE=${AZ}
-PUBLIC_IP=$${PUBLIC_IPV4}
+PUBLIC_IP=${PUBLIC_IPV4}
 HOSTNAME=${hostname}
-LOG_FILE=/mnt/efs/logs/app.log
+LOG_FILE=/mnt/efs/logs/app-${hostname}.log
 EOF
 
-# === Setup Log Rotation ===
-echo ">>> Configuring log rotation..."
+# === Setup log rotation ===
 cat > /etc/logrotate.d/nodejs-app <<EOF
 /mnt/efs/logs/*.log {
     daily
@@ -249,8 +237,7 @@ cat > /etc/logrotate.d/nodejs-app <<EOF
 }
 EOF
 
-# === Configure VSFTPD ===
-echo ">>> Configuring VSFTPD..."
+# === Configure FTP ===
 cat >> /etc/vsftpd/vsftpd.conf <<EOF
 local_root=/mnt/efs
 chroot_local_user=YES
@@ -264,20 +251,14 @@ echo "ssm-user" >> /etc/vsftpd/userlist
 systemctl enable vsftpd
 systemctl start vsftpd
 
-# === Final Verification ===
-echo ">>> Final verification..."
-LOG_FILE="/mnt/efs/logs/app-${hostname}.log"
-touch "$LOG_FILE"
-chown ssm-user:ssm-user "$LOG_FILE"
+# === Final Log File Setup ===
+touch "/mnt/efs/logs/app-${hostname}.log"
+chown ssm-user:ssm-user "/mnt/efs/logs/app-${hostname}.log"
 
-# Update .env with correct log file path
-echo "LOG_FILE=$LOG_FILE" >> /mnt/efs/code/nodejs-app/.env
-echo "✅ Log file prepared at $LOG_FILE"
-
-# === Show final status ===
+# === Final Output ===
 echo ">>> Final EFS mount status:"
 df -h -t nfs4
-echo ">>> EFS mount points:"
+echo ">>> EFS directories:"
 ls -la /mnt/efs/
 
-echo ">>> EC2 provisioning completed successfully at $(date)"
+echo "✅ EC2 provisioning completed successfully at $(date)"

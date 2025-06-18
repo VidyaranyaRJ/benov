@@ -78,7 +78,7 @@ module "instance_1" {
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
-  region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
+  region = "us-east-2"
 }
 
 
@@ -95,7 +95,7 @@ module "instance_1" {
    associate_public_ip_address = true
    key_name                    = "vj-Benevolate"
    az     = data.aws_subnet.selected.availability_zone
-   region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
+   region = "us-east-2"
  }
 
 
@@ -112,7 +112,7 @@ module "instance_3" {
   associate_public_ip_address = false
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
-  region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
+  region = "us-east-2"
 }
 
 
@@ -129,7 +129,7 @@ module "instance_4" {
   associate_public_ip_address = false
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
-  region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
+  region = "us-east-2"
 }
 
 
