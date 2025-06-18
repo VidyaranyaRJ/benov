@@ -115,7 +115,7 @@
 
 
 
-
+#!/bin/bash
 set -e
 
 # === Logging Setup ===
@@ -151,11 +151,12 @@ dnf update -y
 dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd unzip git
 runuser -l ssm-user -c 'npm install -g pm2'
 
-# === Create and Mount EFS Directories ===
+# === Create and Mount EFS Directories with amazon-efs-utils ===
 mkdir -p /mnt/efs/{code,data,logs}
-mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
-mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
-mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
+
+mount -t efs -o tls ${efs1_dns_name}:/ /mnt/efs/code
+mount -t efs -o tls ${efs2_dns_name}:/ /mnt/efs/data
+mount -t efs -o tls ${efs3_dns_name}:/ /mnt/efs/logs
 
 # === Fix permissions for app logging ===
 chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
@@ -163,9 +164,9 @@ chmod -R 755 /mnt/efs/{logs,data,code}
 
 # === Make EFS mounts persistent ===
 cat >> /etc/fstab <<EOF
-${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0
-${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0
-${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0
+${efs1_dns_name}:/ /mnt/efs/code efs _netdev,tls 0 0
+${efs2_dns_name}:/ /mnt/efs/data efs _netdev,tls 0 0
+${efs3_dns_name}:/ /mnt/efs/logs efs _netdev,tls 0 0
 EOF
 
 # === Create default .env file ===
