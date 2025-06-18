@@ -116,7 +116,7 @@
 
 
 
-
+#!/bin/bash
 set -e
 
 # === Initial Logging Setup (local only) ===
@@ -131,7 +131,9 @@ METADATA_BASE="http://169.254.169.254/latest/meta-data"
 AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone")
 PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
 AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
-hostname=$(hostname)
+
+# If hostname passed from Terraform, use it; otherwise default to system hostname
+hostname="${hostname:-$(hostname)}"
 
 export AZ AWS_REGION PUBLIC_IPV4 hostname
 
@@ -142,7 +144,7 @@ echo "✅ Public IP: $PUBLIC_IPV4"
 # === Host Setup ===
 hostnamectl set-hostname "${hostname}"
 echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
-echo "export PS1='$(hostname) \$ '" >> /etc/bashrc
+echo "export PS1='${hostname} \$ '" >> /etc/bashrc
 source /etc/bashrc
 
 # === System Preparation ===
