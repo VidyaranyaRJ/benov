@@ -329,7 +329,7 @@ mount_efs_with_retry() {
   local retry_count=0
 
   while [ $retry_count -lt $max_retries ]; do
-    if mount -t efs -o tls "${dns_name}:" "${mount_point}"; then
+    if mount -t efs -o tls "$dns_name:" "$mount_point"; then
       echo "SUCCESS: Mounted $dns_name to $mount_point"
       return 0
     else
