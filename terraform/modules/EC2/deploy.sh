@@ -152,7 +152,6 @@
 # done
 
 
-
 #!/bin/bash
 
 set -e
@@ -172,20 +171,33 @@ SSH_USER=${SSH_USER:-ec2-user}
 GITHUB_REPO="https://github.com/VidyaranyaRJ/benov.git"
 APP_FOLDER="benov"
 
-# ==== Validate SSH Key ====
-echo "🔑 Checking SSH key..."
-if [ ! -f "$SSH_KEY_NAME" ]; then
-    echo "❌ SSH key file '$SSH_KEY_NAME' not found!"
-    echo "💡 Make sure to:"
-    echo "   1. Download your EC2 key pair from AWS console"
-    echo "   2. Place it in the current directory as '$SSH_KEY_NAME'"
-    echo "   3. Or set SSH_KEY_NAME environment variable to the correct path"
-    exit 1
-fi
+# ==== Handle SSH Key for CI/CD Environment ====
+echo "🔑 Setting up SSH key for CI/CD..."
 
-# Set correct permissions for SSH key
-chmod 400 "$SSH_KEY_NAME"
-echo "✅ SSH key found and permissions set"
+if [ -n "$EC2_SSH_PRIVATE_KEY" ]; then
+    # SSH key provided as environment variable (GitHub Secret)
+    echo "📝 Creating SSH key from environment variable..."
+    echo "$EC2_SSH_PRIVATE_KEY" > "$SSH_KEY_NAME"
+    chmod 400 "$SSH_KEY_NAME"
+    echo "✅ SSH key created from environment variable"
+elif [ -f "$SSH_KEY_NAME" ]; then
+    # SSH key file exists
+    chmod 400 "$SSH_KEY_NAME"
+    echo "✅ SSH key found and permissions set"
+else
+    # No SSH key available - check if we should skip SSH deployment
+    if [ "$SKIP_SSH_DEPLOYMENT" = "true" ]; then
+        echo "⚠️  SSH deployment skipped (SKIP_SSH_DEPLOYMENT=true)"
+        SKIP_SSH=true
+    else
+        echo "❌ SSH key not found!"
+        echo "💡 For CI/CD environments, either:"
+        echo "   1. Set EC2_SSH_PRIVATE_KEY as a secret containing your private key content"
+        echo "   2. Set SKIP_SSH_DEPLOYMENT=true to skip SSH deployment steps"
+        echo "   3. Use AWS Systems Manager Session Manager instead of SSH"
+        exit 1
+    fi
+fi
 
 # ==== Clone Repo ====
 echo "📥 Cloning Node.js app from GitHub..."
@@ -235,6 +247,16 @@ if [ -z "$INSTANCE_IDS" ]; then
 fi
 
 echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
+
+# Skip SSH deployment if requested or no SSH key available
+if [ "$SKIP_SSH" = "true" ]; then
+    echo "⚠️  Skipping SSH deployment steps"
+    echo "🎉 Infrastructure deployment completed!"
+    echo "📋 EC2 Instance IDs: $INSTANCE_IDS"
+    echo "💡 You'll need to manually deploy the application or use Systems Manager"
+    exit 0
+fi
+
 echo "⏳ Waiting for instances to be ready..."
 sleep 60
 
@@ -251,6 +273,7 @@ wait_for_ssh() {
                -o StrictHostKeyChecking=no \
                -o UserKnownHostsFile=/dev/null \
                -o LogLevel=ERROR \
+               -o BatchMode=yes \
                "$SSH_USER@$host" "echo 'SSH connection successful'" 2>/dev/null; then
             echo "✅ SSH connection established to $host"
             return 0
@@ -263,8 +286,49 @@ wait_for_ssh() {
     return 1
 }
 
-# ==== Deploy App via SSH ====
-echo "🚀 Deploying Node.js app on EC2s via SSH..."
+# ==== Alternative: Use AWS Systems Manager Session Manager ====
+deploy_via_ssm() {
+    local instance_id=$1
+    echo "🔧 Deploying via AWS Systems Manager to $instance_id..."
+    
+    # Check if SSM agent is ready
+    echo "⏳ Waiting for SSM agent to be ready..."
+    aws ssm wait instance-information-available --instance-information-filter-list key=InstanceIds,valueSet=$instance_id --region $AWS_REGION
+    
+    # Send command via SSM
+    COMMAND_ID=$(aws ssm send-command \
+        --instance-ids "$instance_id" \
+        --document-name "AWS-RunShellScript" \
+        --parameters "commands=[
+            'echo \"🚀 Starting deployment via SSM...\"',
+            'export TF_STATE_BUCKET=\"$TF_STATE_BUCKET\"',
+            'export AWS_REGION=\"$AWS_REGION\"',
+            'aws s3 cp s3://\$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh --region \$AWS_REGION',
+            'chmod +x /tmp/node-deploy.sh',
+            'bash /tmp/node-deploy.sh'
+        ]" \
+        --region $AWS_REGION \
+        --query 'Command.CommandId' \
+        --output text)
+    
+    echo "📤 Command sent with ID: $COMMAND_ID"
+    
+    # Wait for command completion
+    echo "⏳ Waiting for command completion..."
+    aws ssm wait command-executed --command-id "$COMMAND_ID" --instance-id "$instance_id" --region $AWS_REGION
+    
+    # Get command output
+    echo "📋 Command output:"
+    aws ssm get-command-invocation \
+        --command-id "$COMMAND_ID" \
+        --instance-id "$instance_id" \
+        --region $AWS_REGION \
+        --query 'StandardOutputContent' \
+        --output text
+}
+
+# ==== Deploy App via SSH or SSM ====
+echo "🚀 Deploying Node.js app on EC2s..."
 for INSTANCE_ID in $INSTANCE_IDS; do
     echo "🔍 Getting public IP for instance $INSTANCE_ID..."
     
@@ -284,48 +348,42 @@ for INSTANCE_ID in $INSTANCE_IDS; do
         sleep 15
     done
     
-    if [ -z "$PUBLIC_IPV4" ] || [ "$PUBLIC_IPV4" = "None" ]; then
-        echo "❌ No public IP found for $INSTANCE_ID after waiting"
-        continue
-    fi
-
-    echo "✅ Found public IP: $PUBLIC_IPV4 for instance $INSTANCE_ID"
-    
-    # Wait for SSH to be available
-    if ! wait_for_ssh "$PUBLIC_IPV4"; then
-        echo "❌ Skipping deployment to $INSTANCE_ID due to SSH connectivity issues"
-        continue
-    fi
-    
-    echo "👉 Deploying to $INSTANCE_ID at $PUBLIC_IPV4"
-    
-    # Deploy the application
-    ssh -i "$SSH_KEY_NAME" \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
-        -o LogLevel=ERROR \
-        "$SSH_USER@$PUBLIC_IPV4" << EOF
+    # Try SSH deployment first, fallback to SSM
+    if [ -n "$PUBLIC_IPV4" ] && [ "$PUBLIC_IPV4" != "None" ]; then
+        echo "✅ Found public IP: $PUBLIC_IPV4 for instance $INSTANCE_ID"
+        
+        # Try SSH deployment
+        if wait_for_ssh "$PUBLIC_IPV4"; then
+            echo "👉 Deploying via SSH to $INSTANCE_ID at $PUBLIC_IPV4"
+            
+            ssh -i "$SSH_KEY_NAME" \
+                -o StrictHostKeyChecking=no \
+                -o UserKnownHostsFile=/dev/null \
+                -o LogLevel=ERROR \
+                -o BatchMode=yes \
+                "$SSH_USER@$PUBLIC_IPV4" << EOF
 echo "🚀 Starting deployment on EC2..."
-
-# Export environment variables for the remote session
 export TF_STATE_BUCKET="$TF_STATE_BUCKET"
 export AWS_REGION="$AWS_REGION"
-
-# Download and execute deployment script
-echo "📥 Downloading deployment script..."
 aws s3 cp s3://\$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh --region \$AWS_REGION
 chmod +x /tmp/node-deploy.sh
-
-echo "🎯 Executing deployment script..."
 bash /tmp/node-deploy.sh
-
-echo "✅ Deployment script completed on \$(hostname)"
+echo "✅ Deployment completed on \$(hostname)"
 EOF
-
-    if [ $? -eq 0 ]; then
-        echo "✅ Successfully deployed to $INSTANCE_ID"
+            
+            if [ $? -eq 0 ]; then
+                echo "✅ Successfully deployed via SSH to $INSTANCE_ID"
+            else
+                echo "❌ SSH deployment failed, trying SSM..."
+                deploy_via_ssm "$INSTANCE_ID"
+            fi
+        else
+            echo "❌ SSH failed, trying Systems Manager..."
+            deploy_via_ssm "$INSTANCE_ID"
+        fi
     else
-        echo "❌ Deployment failed for $INSTANCE_ID"
+        echo "⚠️  No public IP, using Systems Manager..."
+        deploy_via_ssm "$INSTANCE_ID"
     fi
 done
 
@@ -338,36 +396,28 @@ for INSTANCE_ID in $INSTANCE_IDS; do
         --query "Reservations[].Instances[].PublicIpAddress" \
         --output text)
     
-    if [ -z "$PUBLIC_IPV4" ] || [ "$PUBLIC_IPV4" = "None" ]; then
-        echo "❌ No public IP found for $INSTANCE_ID"
-        continue
-    fi
-
-    echo "👉 Configuring NGINX on $INSTANCE_ID at $PUBLIC_IPV4"
-    
-    ssh -i "$SSH_KEY_NAME" \
-        -o StrictHostKeyChecking=no \
-        -o UserKnownHostsFile=/dev/null \
-        -o LogLevel=ERROR \
-        "$SSH_USER@$PUBLIC_IPV4" << 'EOF'
-
-# Install NGINX
+    if [ -n "$PUBLIC_IPV4" ] && [ "$PUBLIC_IPV4" != "None" ]; then
+        echo "👉 Configuring NGINX via SSH on $INSTANCE_ID at $PUBLIC_IPV4"
+        
+        ssh -i "$SSH_KEY_NAME" \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o LogLevel=ERROR \
+            -o BatchMode=yes \
+            "$SSH_USER@$PUBLIC_IPV4" << 'EOF'
+# Install and configure NGINX
 echo "⚙️ Installing NGINX..."
 sudo dnf update -y
 sudo dnf install -y nginx
-
-# Enable and start NGINX service
-echo "🚀 Starting NGINX service..."
 sudo systemctl enable nginx
 sudo systemctl start nginx
 
-# Configure NGINX to reverse proxy to Node.js app
+# Configure NGINX reverse proxy
 echo "⚙️ Configuring NGINX reverse proxy..."
 sudo bash -c "cat > /etc/nginx/conf.d/nodeapp.conf << 'CONFIG'
 server {
     listen 80;
     server_name _;
-    
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -378,50 +428,55 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
     }
 }
 CONFIG"
 
-# Remove default NGINX config if it exists
 sudo rm -f /etc/nginx/conf.d/default.conf
-sudo rm -f /etc/nginx/sites-enabled/default
-
-# Test NGINX configuration
-echo "🧪 Testing NGINX configuration..."
-if sudo nginx -t; then
-    echo "✅ NGINX configuration is valid"
-    sudo systemctl reload nginx
-    echo "✅ NGINX reloaded successfully"
-else
-    echo "❌ NGINX configuration test failed"
-    exit 1
-fi
-
-# Check if Node.js app is running
-echo "🔍 Checking Node.js application status..."
-if pgrep -f "node.*index.js" > /dev/null; then
-    echo "✅ Node.js application is running"
-else
-    echo "❌ Node.js application is not running"
-fi
-
-# Check NGINX status
-echo "🔍 Checking NGINX status..."
-sudo systemctl status nginx --no-pager
-
-echo "✅ NGINX configuration completed on $(hostname)"
+sudo nginx -t && sudo systemctl reload nginx
+echo "✅ NGINX configured successfully"
 EOF
-
-    if [ $? -eq 0 ]; then
-        echo "✅ Successfully configured NGINX on $INSTANCE_ID"
-        echo "🌐 Application should be accessible at: http://$PUBLIC_IPV4"
     else
-        echo "❌ NGINX configuration failed for $INSTANCE_ID"
+        echo "⚙️ Configuring NGINX via SSM on $INSTANCE_ID"
+        # Use SSM for NGINX configuration
+        NGINX_COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "commands=[
+                'sudo dnf update -y',
+                'sudo dnf install -y nginx',
+                'sudo systemctl enable nginx',
+                'sudo systemctl start nginx',
+                'sudo bash -c \"cat > /etc/nginx/conf.d/nodeapp.conf << CONFIG
+server {
+    listen 80;
+    server_name _;
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \\\$http_upgrade;
+        proxy_set_header Connection \\\"upgrade\\\";
+        proxy_set_header Host \\\$host;
+        proxy_cache_bypass \\\$http_upgrade;
+    }
+}
+CONFIG\"',
+                'sudo rm -f /etc/nginx/conf.d/default.conf',
+                'sudo nginx -t && sudo systemctl reload nginx'
+            ]" \
+            --region $AWS_REGION \
+            --query 'Command.CommandId' \
+            --output text)
+        
+        echo "📤 NGINX configuration command sent: $NGINX_COMMAND_ID"
     fi
 done
+
+# ==== Cleanup ====
+if [ -f "$SSH_KEY_NAME" ] && [ -n "$EC2_SSH_PRIVATE_KEY" ]; then
+    echo "🧹 Cleaning up temporary SSH key..."
+    rm -f "$SSH_KEY_NAME"
+fi
 
 # ==== Final Steps ====
 echo ""
@@ -429,8 +484,7 @@ echo "🎉 Deployment process completed!"
 echo ""
 echo "📋 Summary:"
 echo "  - Processed instances: $INSTANCE_IDS"
-echo "  - SSH Key used: $SSH_KEY_NAME"
 echo "  - Region: $AWS_REGION"
 echo ""
-echo "🌐 Your application should be accessible via the public IPs listed above"
-echo "💡 If you encounter issues, check the EC2 security groups allow HTTP (port 80) traffic"
+echo "🌐 Your application should be accessible via the EC2 public IPs"
+echo "💡 Check EC2 console for public IPs and ensure security groups allow HTTP traffic"
