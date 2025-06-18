@@ -79,7 +79,6 @@ module "instance_1" {
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
   region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
-  s3_bucket = "vj-test-benvolate"
 }
 
 
@@ -97,7 +96,6 @@ module "instance_1" {
    key_name                    = "vj-Benevolate"
    az     = data.aws_subnet.selected.availability_zone
    region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
-   s3_bucket = "vj-test-benvolate"
  }
 
 
@@ -115,7 +113,6 @@ module "instance_3" {
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
   region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
-  s3_bucket = "vj-test-benvolate"
 }
 
 
@@ -133,7 +130,6 @@ module "instance_4" {
   key_name                    = "vj-Benevolate"
   az     = data.aws_subnet.selected.availability_zone
   region = replace(data.aws_subnet.selected.availability_zone, "/[a-z]$/", "")
-  s3_bucket = "vj-test-benvolate"
 }
 
 

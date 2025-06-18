@@ -2,120 +2,6 @@
 
 
 
-# set -e
-
-# # === Logging Setup ===
-# mkdir -p /mnt/efs/logs
-# exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
-# echo ">>> Starting EC2 provisioning at $(date)"
-
-# # === Fetch EC2 Metadata using IMDSv2 ===
-# TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" \
-#   -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-
-# METADATA_BASE="http://169.254.169.254/latest/meta-data"
-# AZ=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone")
-# PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
-# AWS_REGION=$(echo "$AZ" | sed 's/[a-z]$//')
-
-# export AZ
-# export AWS_REGION
-# export PUBLIC_IPV4
-
-# echo "✅ EC2 is running in Availability Zone: $AZ"
-# echo "✅ Derived AWS Region: $AWS_REGION"
-# echo "✅ Public IP: $PUBLIC_IPV4"
-
-# # === Host Setup ===
-# hostnamectl set-hostname "${hostname}"
-# echo "127.0.0.1   localhost ${hostname}" >> /etc/hosts
-# echo "export PS1='$(hostname) \$ '" >> /etc/bashrc
-# source /etc/bashrc
-
-# # === System Preparation ===
-# dnf update -y
-# dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd
-# runuser -l ssm-user -c 'npm install -g pm2'
-
-# # === Create and Mount EFS Directories ===
-# mkdir -p /mnt/efs/{code,data,logs}
-# mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
-# mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
-# mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
-
-# # === Fix permissions for app logging ===
-# chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
-# chmod -R 755 /mnt/efs/{logs,data,code}
-
-# # === Make EFS mounts persistent ===
-# cat >> /etc/fstab <<EOF
-# ${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0
-# ${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0
-# ${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0
-# EOF
-
-# # === Create default .env file ===
-# mkdir -p /mnt/efs/code/nodejs-app
-# cat > /mnt/efs/code/nodejs-app/.env <<EOF
-# PORT=3000
-# NODE_ENV=production
-# LOG_PATH=/mnt/efs/logs
-# DATA_PATH=/mnt/efs/data
-# EOF
-
-# # === Log Rotation Setup ===
-# cat > /etc/logrotate.d/nodejs-app <<EOF
-# /mnt/efs/logs/*.log {
-#     daily
-#     missingok
-#     rotate 14
-#     compress
-#     delaycompress
-#     notifempty
-#     create 0640 ssm-user ssm-user
-# }
-# EOF
-
-# # === FTP Setup ===
-# mkdir -p /mnt/efs/data/ftp
-# chown ec2-user:ec2-user /mnt/efs/data/ftp
-# usermod -d /mnt/efs/data/ftp ec2-user
-
-# cat >> /etc/vsftpd/vsftpd.conf <<EOF
-# pasv_enable=YES
-# pasv_min_port=21000
-# pasv_max_port=21050
-# pasv_address=$${PUBLIC_IPV4}
-# pasv_addr_resolve=YES
-# local_enable=YES
-# write_enable=YES
-# chroot_local_user=YES
-# allow_writeable_chroot=YES
-# EOF
-
-# systemctl enable vsftpd
-# systemctl restart vsftpd
-# echo "✅ vsftpd installed and configured for /mnt/efs/data/ftp"
-
-# # === Create daily log file with proper permissions ===
-# TODAY=$(date +%m-%d-%Y)
-# LOG_DIR="/mnt/efs/logs/$TODAY/$hostname"
-# LOG_FILE="$LOG_DIR/node-app.log"
-
-# mkdir -p "$LOG_DIR"
-# touch "$LOG_FILE"
-# chown ssm-user:ssm-user "$LOG_FILE"
-# chmod 644 "$LOG_FILE"
-
-# # Inject log file path into .env
-# echo "APP_LOG_FILE=$LOG_FILE" >> /mnt/efs/code/nodejs-app/.env
-# echo "✅ Log file prepared at $LOG_FILE"
-
-# echo ">>> EC2 provisioning completed at $(date)"
-
-
-
-#!/bin/bash
 set -e
 
 # === Logging Setup ===
@@ -148,15 +34,14 @@ source /etc/bashrc
 
 # === System Preparation ===
 dnf update -y
-dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd unzip git
+dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd
 runuser -l ssm-user -c 'npm install -g pm2'
 
-# === Create and Mount EFS Directories with amazon-efs-utils ===
+# === Create and Mount EFS Directories ===
 mkdir -p /mnt/efs/{code,data,logs}
-
-mount -t efs -o tls ${efs1_dns_name}:/ /mnt/efs/code
-mount -t efs -o tls ${efs2_dns_name}:/ /mnt/efs/data
-mount -t efs -o tls ${efs3_dns_name}:/ /mnt/efs/logs
+mount -t nfs4 -o nfsvers=4.1 ${efs1_dns_name}:/ /mnt/efs/code
+mount -t nfs4 -o nfsvers=4.1 ${efs2_dns_name}:/ /mnt/efs/data
+mount -t nfs4 -o nfsvers=4.1 ${efs3_dns_name}:/ /mnt/efs/logs
 
 # === Fix permissions for app logging ===
 chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
@@ -164,9 +49,9 @@ chmod -R 755 /mnt/efs/{logs,data,code}
 
 # === Make EFS mounts persistent ===
 cat >> /etc/fstab <<EOF
-${efs1_dns_name}:/ /mnt/efs/code efs _netdev,tls 0 0
-${efs2_dns_name}:/ /mnt/efs/data efs _netdev,tls 0 0
-${efs3_dns_name}:/ /mnt/efs/logs efs _netdev,tls 0 0
+${efs1_dns_name}:/ /mnt/efs/code nfs4 defaults,_netdev 0 0
+${efs2_dns_name}:/ /mnt/efs/data nfs4 defaults,_netdev 0 0
+${efs3_dns_name}:/ /mnt/efs/logs nfs4 defaults,_netdev 0 0
 EOF
 
 # === Create default .env file ===
@@ -222,28 +107,10 @@ touch "$LOG_FILE"
 chown ssm-user:ssm-user "$LOG_FILE"
 chmod 644 "$LOG_FILE"
 
+# Inject log file path into .env
 echo "APP_LOG_FILE=$LOG_FILE" >> /mnt/efs/code/nodejs-app/.env
 echo "✅ Log file prepared at $LOG_FILE"
 
-# === Deploy Node.js App ===
-APP_DIR="/mnt/efs/code/nodejs-app"
-TEMP_DIR="/mnt/efs/code/nodejs-app-temp"
-S3_BUCKET="vj-test-benvolate"
-S3_KEY="nodejs/nodejs-app.zip"
-
-mkdir -p "$TEMP_DIR"
-
-aws s3 cp "s3://$S3_BUCKET/$S3_KEY" "$TEMP_DIR/app.zip"
-unzip -o "$TEMP_DIR/app.zip" -d "$TEMP_DIR"
-rm -rf "$APP_DIR"
-mv "$TEMP_DIR" "$APP_DIR"
-
-chown -R ssm-user:ssm-user "$APP_DIR"
-
-# === Start App with PM2 ===
-runuser -l ssm-user -c "cd $APP_DIR && pm2 start index.js --name node-app"
-runuser -l ssm-user -c "pm2 save"
-runuser -l ssm-user -c "pm2 startup systemd -u ssm-user --hp /home/ssm-user"
-
-echo "✅ Node.js app deployed and started via PM2"
 echo ">>> EC2 provisioning completed at $(date)"
+
+
