@@ -152,6 +152,7 @@
 # done
 
 
+
 #!/bin/bash
 
 set -e
@@ -181,21 +182,32 @@ if [ -n "$EC2_SSH_PRIVATE_KEY" ]; then
     chmod 400 "$SSH_KEY_NAME"
     echo "✅ SSH key created from environment variable"
 elif [ -f "$SSH_KEY_NAME" ]; then
-    # SSH key file exists
+    # SSH key file exists locally
     chmod 400 "$SSH_KEY_NAME"
-    echo "✅ SSH key found and permissions set"
+    echo "✅ SSH key found locally and permissions set"
 else
-    # No SSH key available - check if we should skip SSH deployment
-    if [ "$SKIP_SSH_DEPLOYMENT" = "true" ]; then
-        echo "⚠️  SSH deployment skipped (SKIP_SSH_DEPLOYMENT=true)"
-        SKIP_SSH=true
+    # Try to download SSH key from S3
+    echo "📥 Attempting to download SSH key from S3..."
+    SSH_S3_PATH="s3://$TF_STATE_BUCKET/EC2/$SSH_KEY_NAME"
+    
+    if aws s3 cp "$SSH_S3_PATH" "$SSH_KEY_NAME" --region "$AWS_REGION" 2>/dev/null; then
+        chmod 400 "$SSH_KEY_NAME"
+        echo "✅ SSH key downloaded from S3 and permissions set"
+        SSH_KEY_FROM_S3=true
     else
-        echo "❌ SSH key not found!"
-        echo "💡 For CI/CD environments, either:"
-        echo "   1. Set EC2_SSH_PRIVATE_KEY as a secret containing your private key content"
-        echo "   2. Set SKIP_SSH_DEPLOYMENT=true to skip SSH deployment steps"
-        echo "   3. Use AWS Systems Manager Session Manager instead of SSH"
-        exit 1
+        # No SSH key available - check if we should skip SSH deployment
+        if [ "$SKIP_SSH_DEPLOYMENT" = "true" ]; then
+            echo "⚠️  SSH deployment skipped (SKIP_SSH_DEPLOYMENT=true)"
+            SKIP_SSH=true
+        else
+            echo "❌ SSH key not found locally or in S3!"
+            echo "💡 For CI/CD environments, either:"
+            echo "   1. Set EC2_SSH_PRIVATE_KEY as a secret containing your private key content"
+            echo "   2. Upload your SSH key to S3 at: $SSH_S3_PATH"
+            echo "   3. Set SKIP_SSH_DEPLOYMENT=true to skip SSH deployment steps"
+            echo "   4. Use AWS Systems Manager Session Manager instead of SSH"
+            exit 1
+        fi
     fi
 fi
 
@@ -473,7 +485,7 @@ CONFIG\"',
 done
 
 # ==== Cleanup ====
-if [ -f "$SSH_KEY_NAME" ] && [ -n "$EC2_SSH_PRIVATE_KEY" ]; then
+if [ -f "$SSH_KEY_NAME" ] && ([ -n "$EC2_SSH_PRIVATE_KEY" ] || [ "$SSH_KEY_FROM_S3" = "true" ]); then
     echo "🧹 Cleaning up temporary SSH key..."
     rm -f "$SSH_KEY_NAME"
 fi
