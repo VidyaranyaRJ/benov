@@ -64,3 +64,8 @@ variable "az" {
 variable "region" {
   type = string
 }
+
+variable "s3_bucket" {
+  description = "S3 bucket for storing deployment zip"
+  type        = string
+}

@@ -17,6 +17,7 @@ resource "aws_instance" "benevolate_ec2_instance" {
     hostname      = var.host_name
     AZ            = var.az
     AWS_REGION    = var.region
+    S3_BUCKET     = var.s3_bucket
   })
 
   tags = {
