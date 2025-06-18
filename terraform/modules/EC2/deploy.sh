@@ -205,97 +205,99 @@ terraform init \
   -backend-config="encrypt=true"
 
 terraform plan -input=false -out=tfplan
-terraform apply -auto-approve tfplan
+# terraform apply -auto-approve tfplan
 
-cd ../../..
+terraform destroy -auto-approve
 
-# ==== Extract EC2 Instance IDs ====
-echo "🔍 Extracting EC2 instance IDs..."
-aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
+# cd ../../..
 
-INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
-if [ -z "$INSTANCE_IDS" ]; then
-  echo "❌ No EC2 instance IDs found."
-  exit 1
-fi
+# # ==== Extract EC2 Instance IDs ====
+# echo "🔍 Extracting EC2 instance IDs..."
+# aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
 
-echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
-sleep 60
+# INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
+# if [ -z "$INSTANCE_IDS" ]; then
+#   echo "❌ No EC2 instance IDs found."
+#   exit 1
+# fi
 
-# ==== Deploy App via SSH ====
-echo "🚀 Deploying Node.js app on EC2s via SSH..."
-for INSTANCE_ID in $INSTANCE_IDS; do
-  PUBLIC_IPV4=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[].Instances[].PublicIpAddress" --output text)
+# echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
+# sleep 60
+
+# # ==== Deploy App via SSH ====
+# echo "🚀 Deploying Node.js app on EC2s via SSH..."
+# for INSTANCE_ID in $INSTANCE_IDS; do
+#   PUBLIC_IPV4=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[].Instances[].PublicIpAddress" --output text)
   
-  if [ -z "$PUBLIC_IPV4" ]; then
-    echo "❌ No public IP found for $INSTANCE_ID"
-    continue
-  fi
+#   if [ -z "$PUBLIC_IPV4" ]; then
+#     echo "❌ No public IP found for $INSTANCE_ID"
+#     continue
+#   fi
 
-  echo "👉 Deploying to $INSTANCE_ID at $PUBLIC_IPV4"
+#   echo "👉 Deploying to $INSTANCE_ID at $PUBLIC_IPV4"
   
-  # Ensure your SSH private key file is available and set the correct permissions for SSH
-  # chmod 400 "./vj-Benevolate.pem"
-  ssh -i vj-Benevolate.pem ec2-user@$PUBLIC_IPV4 << 'EOF'
+#   # Ensure your SSH private key file is available and set the correct permissions for SSH
+#   chmod 400 vj-Benevolate.pem
+#   ssh -i vj-Benevolate.pem ec2-user@$PUBLIC_IPV4 << 'EOF'
 
-    echo "Starting deployment on EC2..."
-    aws s3 cp s3://$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh
-    chmod +x /tmp/node-deploy.sh
-    bash /tmp/node-deploy.sh
-EOF
+#     echo "Starting deployment on EC2..."
+#     aws s3 cp s3://$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh
+#     chmod +x /tmp/node-deploy.sh
+#     bash /tmp/node-deploy.sh
+# EOF
 
-done
+# done
 
-# ==== Final Steps ====
-echo "Deployment complete!"
+# # ==== Final Steps ====
+# echo "Deployment complete!"
 
 
 
-# ==== Configure NGINX ====
-echo "⚙️ Configuring NGINX on EC2s..."
-for INSTANCE_ID in $INSTANCE_IDS; do
-  PUBLIC_IPV4=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[].Instances[].PublicIpAddress" --output text)
+# # ==== Configure NGINX ====
+# echo "⚙️ Configuring NGINX on EC2s..."
+# for INSTANCE_ID in $INSTANCE_IDS; do
+#   PUBLIC_IPV4=$(aws ec2 describe-instances --instance-ids "$INSTANCE_ID" --query "Reservations[].Instances[].PublicIpAddress" --output text)
   
-  if [ -z "$PUBLIC_IPV4" ]; then
-    echo "❌ No public IP found for $INSTANCE_ID"
-    continue
-  fi
+#   if [ -z "$PUBLIC_IPV4" ]; then
+#     echo "❌ No public IP found for $INSTANCE_ID"
+#     continue
+#   fi
 
-  echo "👉 Configuring NGINX on $INSTANCE_ID at $PUBLIC_IPV4"
+#   echo "👉 Configuring NGINX on $INSTANCE_ID at $PUBLIC_IPV4"
   
-  # Ensure your SSH private key file is available and set the correct permissions for SSH
-  ssh -i "./vj-Benevolate.pem" ec2-user@$PUBLIC_IPV4 << 'EOF'
+#   # Ensure your SSH private key file is available and set the correct permissions for SSH
+#   ssh -i "./vj-Benevolate.pem" ec2-user@$PUBLIC_IPV4 << 'EOF'
 
-    # Install NGINX
-    echo "⚙️ Installing NGINX..."
-    sudo dnf install -y nginx
+#     # Install NGINX
+#     echo "⚙️ Installing NGINX..."
+#     sudo dnf install -y nginx
     
-    # Enable and start NGINX service
-    sudo systemctl enable nginx
-    sudo systemctl start nginx
+#     # Enable and start NGINX service
+#     sudo systemctl enable nginx
+#     sudo systemctl start nginx
     
-    # Configure NGINX to reverse proxy to Node.js app
-    echo "⚙️ Configuring NGINX reverse proxy..."
-    sudo bash -c "cat > /etc/nginx/conf.d/nodeapp.conf <<'CONFIG'
-    server {
-      listen 80;
-      server_name _;
-      location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-      }
-    }
-    CONFIG"
+#     # Configure NGINX to reverse proxy to Node.js app
+#     echo "⚙️ Configuring NGINX reverse proxy..."
+#     sudo bash -c "cat > /etc/nginx/conf.d/nodeapp.conf <<'CONFIG'
+#     server {
+#       listen 80;
+#       server_name _;
+#       location / {
+#         proxy_pass http://localhost:3000;
+#         proxy_http_version 1.1;
+#         proxy_set_header Upgrade \$http_upgrade;
+#         proxy_set_header Connection 'upgrade';
+#         proxy_set_header Host \$host;
+#         proxy_cache_bypass \$http_upgrade;
+#       }
+#     }
+#     CONFIG"
     
-    # Remove default NGINX config
-    sudo rm -f /etc/nginx/conf.d/default.conf
+#     # Remove default NGINX config
+#     sudo rm -f /etc/nginx/conf.d/default.conf
 
-    # Test NGINX configuration and reload
-    sudo nginx -t && sudo systemctl reload nginx
-EOF
+#     # Test NGINX configuration and reload
+#     sudo nginx -t && sudo systemctl reload nginx
+# EOF
 
-done
+# done
