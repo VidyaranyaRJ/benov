@@ -5,7 +5,7 @@ data "aws_iam_instance_profile" "ecs_profile" {
   
   
 data "template_file" "user_data" {
-  template = file("${path.module}/scripts/user-data.sh")
+  template = file("${path.module}/user-data.sh")
 
   vars = {
     hostname       = var.hostname
