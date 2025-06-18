@@ -24,3 +24,6 @@ output "module_efs2_id" {
 output "module_efs3_id" {
   value = module.efs3.efs_id
 }
+
+
+

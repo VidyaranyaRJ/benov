@@ -74,12 +74,18 @@ module "instance_1" {
   efs1_dns_name               = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-  host_name                   = local.hostname_instance_1
+  hostname                   = local.hostname_instance_1
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
-  az     = data.aws_subnet.selected.availability_zone
+  az     = "us-east-2a"
   region = "us-east-2"
+  efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
+  efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
+  efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
+
 }
+
+
 
 
  module "instance_2" {
@@ -91,11 +97,14 @@ module "instance_1" {
    efs1_dns_name               = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
    efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
    efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-   host_name                   = local.hostname_instance_2
+   hostname                   = local.hostname_instance_2
    associate_public_ip_address = true
    key_name                    = "vj-Benevolate"
-   az     = data.aws_subnet.selected.availability_zone
+   az     = "us-east-2a"
    region = "us-east-2"
+   efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
+   efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
+   efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
  }
 
 
@@ -108,11 +117,14 @@ module "instance_3" {
   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-  host_name = local.hostname_instance_3
+  hostname = local.hostname_instance_3
   associate_public_ip_address = false
   key_name                    = "vj-Benevolate"
-  az     = data.aws_subnet.selected.availability_zone
+  az     = "us-east-2a"
   region = "us-east-2"
+  efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
+  efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
+  efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
 }
 
 
@@ -125,11 +137,14 @@ module "instance_4" {
   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-  host_name = local.hostname_instance_4
+  hostname = local.hostname_instance_4
   associate_public_ip_address = false
   key_name                    = "vj-Benevolate"
-  az     = data.aws_subnet.selected.availability_zone
+  az     = "us-east-2a"
   region = "us-east-2"
+  efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
+  efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
+  efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
 }
 
 
@@ -142,8 +157,13 @@ module "instance_4" {
 #   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
 #   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
 #   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   host_name = local.hostname_instance_5
-#   associate_public_ip_address = false
-#    key_name                    = "vj-Benevolate"
+#   hostname = local.hostname_instance_5
+  # associate_public_ip_address = false
+  # key_name                    = "vj-Benevolate"
+  # az     = "us-east-2a"
+  # region = "us-east-2"
+  # efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
+  # efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
+  # efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
 
 # }

@@ -36,14 +36,28 @@ variable "efs3_dns_name" {
 }
 
 
+
+variable "efs_code_id" {
+  type        = string
+}
+
+variable "efs_data_id" {
+  type        = string
+}
+
+variable "efs_logs_id" {
+  type        = string
+}
+
+
 variable "ami" {
   type = string
 }
 
 
-variable "host_name" {
-  type = string
-}
+# variable "host_name" {
+#   type = string
+# }
 
 variable "associate_public_ip_address" {
   type = bool
@@ -65,3 +79,8 @@ variable "region" {
   type = string
 }
 
+
+
+variable "hostname" {
+  type = string
+}
