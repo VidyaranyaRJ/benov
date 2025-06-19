@@ -186,7 +186,7 @@ app.get('/', (req, res) => {
             
             // Update status indicator
             const statusEl = document.getElementById('statusIndicator');
-            statusEl.innerHTML = '🟢 LIVE';
+            statusEl.innerHTML = '🟢 LIVE ';
             statusEl.style.background = 'rgba(76, 175, 80, 0.9)';
             
             if (!isOnline) {
