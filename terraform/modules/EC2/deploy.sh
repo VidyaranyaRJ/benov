@@ -423,8 +423,8 @@ terraform init \
   -backend-config="encrypt=true"
 
 terraform plan -input=false -out=tfplan
-terraform apply -auto-approve tfplan
-# terraform destroy -auto-approve
+# terraform apply -auto-approve tfplan
+terraform destroy -auto-approve
 
 
 
