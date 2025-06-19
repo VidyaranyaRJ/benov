@@ -7,14 +7,14 @@ data "aws_iam_instance_profile" "ecs_profile" {
 data "template_file" "user_data" {
   template = file("${path.module}/user-data.sh")
 
-  vars = {
-    hostname       = var.hostname
-    AZ             = var.az
-    AWS_REGION     = var.region
-    efs1_dns_name  = "${var.efs_code_id}.efs.${var.region}.amazonaws.com"
-    efs2_dns_name  = "${var.efs_data_id}.efs.${var.region}.amazonaws.com"
-    efs3_dns_name  = "${var.efs_logs_id}.efs.${var.region}.amazonaws.com"
-  }
+  # vars = {
+  #   hostname       = var.hostname
+  #   AZ             = var.az
+  #   AWS_REGION     = var.region
+  #   efs1_dns_name  = "${var.efs_code_id}.efs.${var.region}.amazonaws.com"
+  #   efs2_dns_name  = "${var.efs_data_id}.efs.${var.region}.amazonaws.com"
+  #   efs3_dns_name  = "${var.efs_logs_id}.efs.${var.region}.amazonaws.com"
+  # }
 }
 
 
