@@ -1,4 +1,4 @@
-# #!/bin/bash
+#!/bin/bash
 # set -e
 
 # # === Initial Logging Setup ===
@@ -120,6 +120,7 @@
 
 
 #!/bin/bash
+
 set -e
 
 # === Initial Logging Setup ===
@@ -249,3 +250,7 @@ echo ">>> EFS directories:"
 ls -la /mnt/efs/
 
 echo "EC2 provisioning completed successfully at $(date)"
+
+
+
+
