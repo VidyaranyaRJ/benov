@@ -1,7 +1,7 @@
-variable "sg_name" {
-  type    = string
-  default = "ecs_sg"
+variable "ami" {
+  type = string
 }
+
 
 variable "subnet" {
   type        = string
@@ -13,52 +13,6 @@ variable "sg_id" {
   description = "Security group ID"
 }
 
-
-variable "ec2_tag_name" {
-  type        = string
-  description = "EC2 tag name"
-}
-
-
-variable "efs1_dns_name" {
-  type        = string
-  description = "EFS DNS name"
-}
-
-variable "efs2_dns_name" {
-  type        = string
-  description = "EFS DNS name"
-}
-
-variable "efs3_dns_name" {
-  type        = string
-  description = "EFS DNS name"
-}
-
-
-
-variable "efs_code_id" {
-  type        = string
-}
-
-variable "efs_data_id" {
-  type        = string
-}
-
-variable "efs_logs_id" {
-  type        = string
-}
-
-
-variable "ami" {
-  type = string
-}
-
-
-# variable "host_name" {
-#   type = string
-# }
-
 variable "associate_public_ip_address" {
   type = bool
 }
@@ -68,19 +22,67 @@ variable "key_name" {
   type = string
 }
 
-
-
-variable "az" {
-  type = string
-}
-
-
-variable "region" {
-  type = string
-}
-
-
-
 variable "hostname" {
   type = string
 }
+
+variable "ec2_tag_name" {
+  type        = string
+  description = "EC2 tag name"
+}
+
+
+# variable "efs1_dns_name" {
+#   type        = string
+#   description = "EFS DNS name"
+# }
+
+# variable "efs2_dns_name" {
+#   type        = string
+#   description = "EFS DNS name"
+# }
+
+# variable "efs3_dns_name" {
+#   type        = string
+#   description = "EFS DNS name"
+# }
+
+
+
+# variable "efs_code_id" {
+#   type        = string
+# }
+
+# variable "efs_data_id" {
+#   type        = string
+# }
+
+# variable "efs_logs_id" {
+#   type        = string
+# }
+
+
+
+# variable "sg_name" {
+#   type    = string
+#   default = "ecs_sg"
+# }
+
+
+
+# variable "host_name" {
+#   type = string
+# }
+
+
+# variable "az" {
+#   type = string
+# }
+
+
+# variable "region" {
+#   type = string
+# }
+
+
+
