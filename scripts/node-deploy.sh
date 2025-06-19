@@ -163,7 +163,7 @@ for i in {1..6}; do
     break
   fi
   echo "⏳ Attempt $i/6: EFS not yet mounted, retrying in 5 seconds..."
-  sleep 5
+  sleep 20
 done
 
 
