@@ -154,14 +154,39 @@ APP_DIR="${EFS_MOUNT}/code"
 TEMP_DIR="${APP_DIR}/nodejs-app-temp"
 DEPLOY_DIR="${APP_DIR}/nodejs-app"
 
+
+# Wait for EFS to be mounted (retry loop)
+echo "⏳ Waiting up to 30 seconds for EFS to mount..."
+for i in {1..6}; do
+  if df -h -t nfs4 | grep -q "efs"; then
+    echo "✅ EFS mount detected!"
+    break
+  fi
+  echo "⏳ Attempt $i/6: EFS not yet mounted, retrying in 5 seconds..."
+  sleep 5
+done
+
+
+
 # === Check EFS mount status ===
 echo "🔍 Checking EFS mount status..."
 echo "=== Current mounts ==="
 df -h -t nfs4 | grep -E "(amazonaws|efs)" || echo "No EFS mounts found"
 
+
+
 # 🕒 Waiting 3 minutes to ensure EFS mounts stabilize
 echo "⏳ Sleeping for 3 minutes..."
-sleep 180
+
+SECONDS_LEFT=180
+while [ $SECONDS_LEFT -gt 0 ]; do
+  echo "⏳ $SECONDS_LEFT seconds remaining..."
+  sleep 10
+  SECONDS_LEFT=$((SECONDS_LEFT - 10))
+done
+
+
+
 
 # 🆕 Re-read updated hostname after delay
 HOSTNAME=$(hostname)
