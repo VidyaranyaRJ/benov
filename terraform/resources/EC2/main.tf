@@ -53,7 +53,7 @@ resource "aws_instance" "benevolate_ec2_instance" {
 
               # Update packages
               sudo apt-get update -y
-              sudo apt-get install -y nfs-common git binutils python3-pip curl unzip
+              sudo apt-get install -y nfs-common amazon-efs-utils git binutils python3-pip curl unzip
               sudo pip3 install botocore
 
               # Set alias for python and pip
@@ -65,14 +65,6 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo mkdir -p /mnt/efs/data
               sudo mkdir -p /mnt/efs/logs
 
-              # Clone EFS utils repository
-              git clone https://github.com/aws/efs-utils
-              cd ./efs-utils
-
-              # Build and install EFS utilities
-              sudo ./build-deb.sh
-              sudo apt-get install -y ./build/amazon-efs-utils*deb
-
               # Print EFS DNS names
               echo ">>> EFS DNS names:"
               echo "Code: ${var.efs_code_id}:/"
@@ -80,15 +72,9 @@ resource "aws_instance" "benevolate_ec2_instance" {
               echo "Logs: ${var.efs_logs_id}:/"
 
               # Mount the EFS file systems
-              echo ">>> Mounting EFS file systems..."
-
-              # Mount EFS1 (Code)
+              echo ">>> Mounting EFS file systems:"
               sudo mount -t efs -o tls,iam ${var.efs_code_id}:/ /mnt/efs/code
-
-              # Mount EFS2 (Data)
               sudo mount -t efs -o tls,iam ${var.efs_data_id}:/ /mnt/efs/data
-
-              # Mount EFS3 (Logs)
               sudo mount -t efs -o tls,iam ${var.efs_logs_id}:/ /mnt/efs/logs
 
               # Add EFS to fstab for persistence
@@ -104,6 +90,7 @@ resource "aws_instance" "benevolate_ec2_instance" {
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
               unzip awscliv2.zip
               sudo ./aws/install
+
               EOF
 
   tags = {
