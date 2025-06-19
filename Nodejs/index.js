@@ -9,6 +9,14 @@ const writeLog = require('./logger');
 const app = express();
 const port = process.env.PORT || 3000;
 
+
+// Add cache control for all responses
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'public, max-age=60');
+  next();
+});
+
+
 // Get hostname once at startup
 const HOSTNAME = os.hostname();
 
@@ -233,7 +241,11 @@ app.get('/', (req, res) => {
         }
         
         // Initial call
-        updateTime();
+        // updateTime();
+        window.addEventListener('load', () => {
+          updateTime();
+          setInterval(updateTime, 1000);
+        });
         
         // Update every second
         setInterval(updateTime, 1000);
