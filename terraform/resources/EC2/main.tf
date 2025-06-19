@@ -102,6 +102,18 @@ data "aws_iam_instance_profile" "ecs_profile" {
 #   }
 # }
 
+
+data "terraform_remote_state" "efs" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "EFS/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
+
+
 resource "aws_instance" "benevolate_ec2_instance" {
   ami                         = var.ami
   instance_type               = "t2.micro"
@@ -137,10 +149,10 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo mkdir -p /mnt/efs/data
               sudo mkdir -p /mnt/efs/logs
 
-              # Define EFS DNS names dynamically
-              EFS_CODE_DNS="${var.efs_code_id}.efs.${var.region}.amazonaws.com"
-              EFS_DATA_DNS="${var.efs_data_id}.efs.${var.region}.amazonaws.com"
-              EFS_LOGS_DNS="${var.efs_logs_id}.efs.${var.region}.amazonaws.com"
+              # Define EFS DNS names dynamically using values from terraform_remote_state
+              EFS_CODE_DNS="${data.terraform_remote_state.efs.outputs.module_efs1_dns_name}"
+              EFS_DATA_DNS="${data.terraform_remote_state.efs.outputs.module_efs2_dns_name}"
+              EFS_LOGS_DNS="${data.terraform_remote_state.efs.outputs.module_efs3_dns_name}"
 
               # Mount the EFS file systems
               echo ">>> Mounting EFS file systems:"
