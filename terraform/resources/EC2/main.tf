@@ -27,6 +27,12 @@ resource "aws_instance" "benevolate_ec2_instance" {
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = var.key_name
   user_data     = data.template_file.user_data.rendered
+  connection {
+    type = "ssh"
+    user = "ec2-user"
+    private_key = file("C:/Users/vrjav/Downloads/Desktop folders/Benevolate/terraform/resources/EC2/vj-Benevolate.pem")
+    host = aws_instance.benevolate_ec2_instance.public_ip
+  }
 
   tags = {
     Name = var.ec2_tag_name
