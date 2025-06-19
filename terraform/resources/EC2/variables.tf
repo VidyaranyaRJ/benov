@@ -20,20 +20,20 @@ variable "ec2_tag_name" {
 }
 
 
-# variable "efs1_dns_name" {
-#   type        = string
-#   description = "EFS DNS name"
-# }
+variable "efs1_dns_name" {
+  type        = string
+  description = "EFS DNS name"
+}
 
-# variable "efs2_dns_name" {
-#   type        = string
-#   description = "EFS DNS name"
-# }
+variable "efs2_dns_name" {
+  type        = string
+  description = "EFS DNS name"
+}
 
-# variable "efs3_dns_name" {
-#   type        = string
-#   description = "EFS DNS name"
-# }
+variable "efs3_dns_name" {
+  type        = string
+  description = "EFS DNS name"
+}
 
 
 
@@ -70,17 +70,17 @@ variable "key_name" {
 
 
 
-# variable "az" {
-#   type = string
-# }
+variable "az" {
+  type = string
+}
 
 
-# variable "region" {
-#   type = string
-# }
+variable "region" {
+  type = string
+}
 
 
 
-# variable "hostname" {
-#   type = string
-# }
+variable "hostname" {
+  type = string
+}
