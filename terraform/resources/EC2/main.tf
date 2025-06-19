@@ -103,14 +103,6 @@ data "aws_iam_instance_profile" "ecs_profile" {
 # }
 
 
-data "terraform_remote_state" "efs" {
-  backend = "s3"
-  config = {
-    bucket = "vj-test-benvolate"
-    key    = "EFS/terraform.tfstate"
-    region = "us-east-2"
-  }
-}
 
 
 
@@ -156,20 +148,20 @@ resource "aws_instance" "benevolate_ec2_instance" {
 
               # Mount the EFS file systems
               echo ">>> Mounting EFS file systems:"
-              sudo mount -t efs -o tls,iam ${EFS_CODE_DNS}:/ /mnt/efs/code
-              sudo mount -t efs -o tls,iam ${EFS_DATA_DNS}:/ /mnt/efs/data
-              sudo mount -t efs -o tls,iam ${EFS_LOGS_DNS}:/ /mnt/efs/logs
+              sudo mount -t efs -o tls,iam $${EFS_CODE_DNS}:/ /mnt/efs/code
+              sudo mount -t efs -o tls,iam $${EFS_DATA_DNS}:/ /mnt/efs/data
+              sudo mount -t efs -o tls,iam $${EFS_LOGS_DNS}:/ /mnt/efs/logs
 
               # Add EFS to fstab for persistence
-              echo '${EFS_CODE_DNS}:/ /mnt/efs/code efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
-              echo '${EFS_DATA_DNS}:/ /mnt/efs/data efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
-              echo '${EFS_LOGS_DNS}:/ /mnt/efs/logs efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
+              echo '$${EFS_CODE_DNS}:/ /mnt/efs/code efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
+              echo '$${EFS_DATA_DNS}:/ /mnt/efs/data efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
+              echo '$${EFS_LOGS_DNS}:/ /mnt/efs/logs efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
 
               # Print current mounts
               echo ">>> Current mounts:"
               mount | grep /mnt/efs
 
-              # Install AWS CLI
+              # Install AWS CLI (duplicate - you might want to remove this)
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
               unzip awscliv2.zip
               sudo ./aws/install
