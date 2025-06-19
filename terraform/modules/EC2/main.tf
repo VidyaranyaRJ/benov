@@ -75,79 +75,47 @@ module "instance_1" {
   hostname                   = local.hostname_instance_1    
   ec2_tag_name                = local.ec2_tag_name_tag1
 
-
-  # efs1_dns_name               = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-  # efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-  # efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-  # az     = "us-east-2a"
-  # region = "us-east-2"
-  # efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
-  # efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
-  # efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
-
 }
 
 
 
 
-#  module "instance_2" {
-#    source                      = "../../resources/EC2"
-#    ami                         = local.ami
-#    subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-#    sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
-#    ec2_tag_name                = local.ec2_tag_name_tag2
-#    efs1_dns_name               = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#    efs2_dns_name               = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#    efs3_dns_name               = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#    hostname                   = local.hostname_instance_2
-#    associate_public_ip_address = true
-#    key_name                    = "vj-Benevolate"
-#    az     = "us-east-2a"
-#    region = "us-east-2"
-#    efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
-#    efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
-#    efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
-#  }
+ module "instance_2" {
+  source                      = "../../resources/EC2"
+  ami                         = local.ami
+  subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
+  sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  associate_public_ip_address = true
+  key_name                    = "vj-Benevolate"
+  ec2_tag_name                = local.ec2_tag_name_tag1
+  hostname                   = local.hostname_instance_2
+   
+ }
 
 
-# module "instance_3" {
-#   source                                 = "../../resources/EC2"
-#   ami = local.ami
-#   subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-#   sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag3
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   hostname = local.hostname_instance_3
-#   associate_public_ip_address = false
-#   key_name                    = "vj-Benevolate"
-#   az     = "us-east-2a"
-#   region = "us-east-2"
-#   efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
-#   efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
-#   efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
-# }
+module "instance_3" {
+  source                      = "../../resources/EC2"
+  ami                         = local.ami
+  subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
+  sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  associate_public_ip_address = true
+  key_name                    = "vj-Benevolate"
+  ec2_tag_name                = local.ec2_tag_name_tag1
+  hostname = local.hostname_instance_3
+  
+}
 
 
-# module "instance_4" {
-#   source                                 = "../../resources/EC2"
-#   ami = local.ami
-#   subnet        = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-application-1"]
-#   sg_id         = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
-#   ec2_tag_name = local.ec2_tag_name_tag4
-#   efs1_dns_name = data.terraform_remote_state.efs.outputs.module_efs1_dns_name
-#   efs2_dns_name = data.terraform_remote_state.efs.outputs.module_efs2_dns_name
-#   efs3_dns_name = data.terraform_remote_state.efs.outputs.module_efs3_dns_name
-#   hostname = local.hostname_instance_4
-#   associate_public_ip_address = false
-#   key_name                    = "vj-Benevolate"
-#   az     = "us-east-2a"
-#   region = "us-east-2"
-#   efs_code_id = data.terraform_remote_state.efs.outputs.module_efs1_id
-#   efs_data_id = data.terraform_remote_state.efs.outputs.module_efs2_id
-#   efs_logs_id = data.terraform_remote_state.efs.outputs.module_efs3_id
-# }
+module "instance_4" {
+  source                      = "../../resources/EC2"
+  ami                         = local.ami
+  subnet                      = data.terraform_remote_state.subnet.outputs.module_subnet_id["Benevolate-subnet-load-balancer-1"]
+  sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
+  associate_public_ip_address = true
+  key_name                    = "vj-Benevolate"
+  ec2_tag_name                = local.ec2_tag_name_tag1
+  hostname = local.hostname_instance_4
+}
 
 
 # module "instance_5" {
