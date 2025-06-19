@@ -154,7 +154,7 @@ app.get('/', (req, res) => {
       </div>
       
       <div class="container">
-        <h1>⏰ Live Time Monitor</h1>
+        <h1>⏰ Live GMT Time Monitor</h1>
         <div id="time">Loading...</div>
         <div class="stats">
           <div>Visit Count: <span id="visitCount">${visitCount}</span></div>
@@ -186,7 +186,7 @@ app.get('/', (req, res) => {
             
             // Update status indicator
             const statusEl = document.getElementById('statusIndicator');
-            statusEl.innerHTML = '🟢 LIVE GMT Time';
+            statusEl.innerHTML = '🟢 LIVE ';
             statusEl.style.background = 'rgba(76, 175, 80, 0.9)';
             
             if (!isOnline) {
@@ -772,8 +772,11 @@ app.get('/health', (req, res) => {
   }
 });
 
+
 // Start the server
 app.listen(port, () => {
   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
   console.log(`Server running at http://localhost:${port}`);
-})
+});
+
+
