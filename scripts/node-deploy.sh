@@ -158,6 +158,17 @@ DEPLOY_DIR="${APP_DIR}/nodejs-app"
 echo "🔍 Checking EFS mount status..."
 echo "=== Current mounts ==="
 df -h -t nfs4 | grep -E "(amazonaws|efs)" || echo "No EFS mounts found"
+
+# 🕒 Waiting 3 minutes to ensure EFS mounts stabilize
+echo "⏳ Sleeping for 3 minutes..."
+sleep 180
+
+# 🆕 Re-read updated hostname after delay
+HOSTNAME=$(hostname)
+echo "✅ Detected updated hostname: $HOSTNAME"
+
+
+
 echo "=== EFS directories ==="
 ls -la /mnt/efs/ 2>/dev/null || echo "/mnt/efs not found"
 
