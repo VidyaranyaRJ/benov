@@ -216,6 +216,11 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo hostnamectl set-hostname "$${var.hostname}"
               echo "$${var.hostname}" | sudo tee /etc/hostname
 
+
+              # Fix permissions so ec2-user can write to EFS mounts
+              sudo chown -R ec2-user:ec2-user /mnt/efs/code /mnt/efs/logs /mnt/efs/data
+
+
               EOF
 
   tags = {
