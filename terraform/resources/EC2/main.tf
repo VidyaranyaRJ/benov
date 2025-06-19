@@ -114,6 +114,8 @@ data "terraform_remote_state" "efs" {
 }
 
 
+
+
 resource "aws_instance" "benevolate_ec2_instance" {
   ami                         = var.ami
   instance_type               = "t2.micro"
@@ -191,11 +193,84 @@ resource "aws_instance" "benevolate_ec2_instance" {
                   exit 1
               fi
 
-              # Mount the EFS file systems
-              echo ">>> Mounting EFS file systems..."
+              #####################
+              # EFS CLEARING FUNCTION - COMMENT OUT TO PRESERVE DATA
+              #####################
+              # Function to safely clear EFS content
+              clear_efs_content() {
+                  local mount_point=$1
+                  local efs_name=$2
+                  
+                  echo ">>> Checking content in $efs_name EFS..."
+                  if [ "$(sudo ls -A $mount_point 2>/dev/null)" ]; then
+                      echo ">>> Found existing content in $efs_name EFS:"
+                      sudo ls -la $mount_point
+                      echo ">>> Clearing content from $efs_name EFS..."
+                      sudo find $mount_point -mindepth 1 -delete 2>/dev/null || {
+                          echo ">>> Using rm -rf as fallback for $efs_name..."
+                          sudo rm -rf $mount_point/* $mount_point/.[!.]* 2>/dev/null || true
+                      }
+                      echo ">>> $efs_name EFS cleared successfully"
+                  else
+                      echo ">>> $efs_name EFS is already empty"
+                  fi
+              }
+              #####################
+              # END OF EFS CLEARING FUNCTION
+              #####################
+
+              #####################
+              # EFS CONTENT DELETION SECTION - COMMENT OUT TO PRESERVE DATA
+              #####################
+              
+              # Mount the EFS file systems temporarily to clear them
+              echo ">>> Temporarily mounting EFS file systems to clear content..."
+              
+              # Create temporary mount points
+              sudo mkdir -p /tmp/efs-temp/{code,data,logs}
+              
+              # Mount EFS temporarily
+              echo ">>> Mounting Code EFS temporarily..."
+              sudo mount -t efs -o tls,iam $EFS_CODE_DNS:/ /tmp/efs-temp/code
+              if [ $? -eq 0 ]; then
+                  clear_efs_content "/tmp/efs-temp/code" "Code"
+                  sudo umount /tmp/efs-temp/code
+              else
+                  echo ">>> Failed to mount Code EFS temporarily"
+              fi
+              
+              echo ">>> Mounting Data EFS temporarily..."
+              sudo mount -t efs -o tls,iam $EFS_DATA_DNS:/ /tmp/efs-temp/data
+              if [ $? -eq 0 ]; then
+                  clear_efs_content "/tmp/efs-temp/data" "Data"
+                  sudo umount /tmp/efs-temp/data
+              else
+                  echo ">>> Failed to mount Data EFS temporarily"
+              fi
+              
+              echo ">>> Mounting Logs EFS temporarily..."
+              sudo mount -t efs -o tls,iam $EFS_LOGS_DNS:/ /tmp/efs-temp/logs
+              if [ $? -eq 0 ]; then
+                  clear_efs_content "/tmp/efs-temp/logs" "Logs"
+                  sudo umount /tmp/efs-temp/logs
+              else
+                  echo ">>> Failed to mount Logs EFS temporarily"
+              fi
+              
+              # Remove temporary directories
+              sudo rm -rf /tmp/efs-temp
+              
+              #####################
+              # END OF EFS CONTENT DELETION SECTION
+              #####################
+              
+              # Now mount EFS file systems to final locations
+              echo ">>> Mounting EFS file systems to final locations..."
               sudo mount -t efs -o tls,iam $EFS_CODE_DNS:/ /mnt/efs/code
               if [ $? -eq 0 ]; then
                   echo ">>> Successfully mounted Code EFS"
+                  echo ">>> Code EFS content after mounting:"
+                  sudo ls -la /mnt/efs/code
               else
                   echo ">>> Failed to mount Code EFS"
               fi
@@ -203,6 +278,8 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo mount -t efs -o tls,iam $EFS_DATA_DNS:/ /mnt/efs/data
               if [ $? -eq 0 ]; then
                   echo ">>> Successfully mounted Data EFS"
+                  echo ">>> Data EFS content after mounting:"
+                  sudo ls -la /mnt/efs/data
               else
                   echo ">>> Failed to mount Data EFS"
               fi
@@ -210,6 +287,8 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo mount -t efs -o tls,iam $EFS_LOGS_DNS:/ /mnt/efs/logs
               if [ $? -eq 0 ]; then
                   echo ">>> Successfully mounted Logs EFS"
+                  echo ">>> Logs EFS content after mounting:"
+                  sudo ls -la /mnt/efs/logs
               else
                   echo ">>> Failed to mount Logs EFS"
               fi
