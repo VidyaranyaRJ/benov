@@ -181,6 +181,46 @@ resource "aws_instance" "benevolate_ec2_instance" {
               fi
 
               sudo mount -t efs -o tls,iam $EFS_LOGS_DNS:/ /mnt/efs/logs
+
+              #######################################################################################################
+              # Now mount EFS file systems to final locations
+              echo ">>> Mounting EFS file systems to final locations..."
+              sudo mount -t efs -o tls,iam $EFS_CODE_DNS:/ /mnt/efs/code
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Code EFS"
+                  echo ">>> Code EFS content after mounting:"
+                  sudo ls -la /mnt/efs/code
+              else
+                  echo ">>> Failed to mount Code EFS"
+              fi
+
+              sudo mount -t efs -o tls,iam $EFS_DATA_DNS:/ /mnt/efs/data
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Data EFS"
+                  echo ">>> Data EFS content after mounting:"
+                  sudo ls -la /mnt/efs/data
+              else
+                  echo ">>> Failed to mount Data EFS"
+              fi
+
+              sudo mount -t efs -o tls,iam $EFS_LOGS_DNS:/ /mnt/efs/logs
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Logs EFS"
+                  echo ">>> Logs EFS content after mounting:"
+                  sudo ls -la /mnt/efs/logs
+              else
+                  echo ">>> Failed to mount Logs EFS"
+              fi
+
+              # Add wait time for EFS to settle
+              echo ">>> Waiting for 3 minutes to ensure EFS mounts stabilize..."
+              sleep 180
+
+              # Add EFS to fstab for persistence (only if mounts were successful)
+              echo ">>> Adding EFS entries to /etc/fstab..."
+
+              #######################################################################################################
+
               if [ $? -eq 0 ]; then
                   echo ">>> Successfully mounted Logs EFS"
                   echo ">>> Logs EFS content after mounting:"
@@ -212,9 +252,9 @@ resource "aws_instance" "benevolate_ec2_instance" {
 
 
               # Rename the EC2 hostname using variable
-              echo ">>> Setting hostname to $${var.hostname}..."
-              sudo hostnamectl set-hostname "$${var.hostname}"
-              echo "$${var.hostname}" | sudo tee /etc/hostname
+              echo ">>> Setting hostname to ${var.hostname}..."
+              sudo hostnamectl set-hostname "${var.hostname}"
+              echo "${var.hostname}" | sudo tee /etc/hostname
 
 
               # Fix permissions so ec2-user can write to EFS mounts
