@@ -428,67 +428,67 @@ terraform apply -auto-approve tfplan
 
 
 
-cd ../../..
+# cd ../../..
 
-# ==== Extract EC2 Instance IDs ==== 
-echo "🔍 Extracting EC2 instance IDs..."
-aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
+# # ==== Extract EC2 Instance IDs ==== 
+# echo "🔍 Extracting EC2 instance IDs..."
+# aws s3 cp s3://$TF_STATE_BUCKET/$EC2_TFSTATE_KEY tfstate.json --region $AWS_REGION
 
-INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
-if [ -z "$INSTANCE_IDS" ]; then
-  echo "❌ No EC2 instance IDs found."
-  exit 1
-fi
+# INSTANCE_IDS=$(jq -r '.resources[] | select(.type == "aws_instance") | .instances[].attributes.id' tfstate.json 2>/dev/null || echo "")
+# if [ -z "$INSTANCE_IDS" ]; then
+#   echo "❌ No EC2 instance IDs found."
+#   exit 1
+# fi
 
-echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
+# echo "✅ Found EC2 instance IDs: $INSTANCE_IDS"
 
-# ==== Wait for SSH Connectivity ==== 
-echo "⏳ Waiting for EC2 instances to be ready..."
+# # ==== Wait for SSH Connectivity ==== 
+# echo "⏳ Waiting for EC2 instances to be ready..."
 
-# ==== SSH Deployment ==== 
-for INSTANCE_ID in $INSTANCE_IDS; do
-    echo "🔍 Getting public IP for instance $INSTANCE_ID..."
+# # ==== SSH Deployment ==== 
+# for INSTANCE_ID in $INSTANCE_IDS; do
+#     echo "🔍 Getting public IP for instance $INSTANCE_ID..."
 
-    PUBLIC_IPV4=$(aws ec2 describe-instances \
-        --instance-ids "$INSTANCE_ID" \
-        --region "$AWS_REGION" \
-        --query "Reservations[].Instances[].PublicIpAddress" \
-        --output text 2>/dev/null || echo "")
+#     PUBLIC_IPV4=$(aws ec2 describe-instances \
+#         --instance-ids "$INSTANCE_ID" \
+#         --region "$AWS_REGION" \
+#         --query "Reservations[].Instances[].PublicIpAddress" \
+#         --output text 2>/dev/null || echo "")
 
-    if [ -n "$PUBLIC_IPV4" ]; then
-        echo "✅ Found public IP: $PUBLIC_IPV4 for instance $INSTANCE_ID"
-        # Wait for SSH connection
-        echo "⏳ Waiting for SSH connectivity to $PUBLIC_IPV4..."
-        for i in {1..10}; do
-            if ssh -i "$SSH_KEY_NAME" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@$PUBLIC_IPV4" "echo 'SSH connection successful'" 2>/dev/null; then
-                echo "✅ SSH connection established to $PUBLIC_IPV4"
-                break
-            fi
-            echo "⏳ Attempt $i/10 failed, retrying in 10 seconds..."
-            sleep 10
-        done
+#     if [ -n "$PUBLIC_IPV4" ]; then
+#         echo "✅ Found public IP: $PUBLIC_IPV4 for instance $INSTANCE_ID"
+#         # Wait for SSH connection
+#         echo "⏳ Waiting for SSH connectivity to $PUBLIC_IPV4..."
+#         for i in {1..10}; do
+#             if ssh -i "$SSH_KEY_NAME" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@$PUBLIC_IPV4" "echo 'SSH connection successful'" 2>/dev/null; then
+#                 echo "✅ SSH connection established to $PUBLIC_IPV4"
+#                 break
+#             fi
+#             echo "⏳ Attempt $i/10 failed, retrying in 10 seconds..."
+#             sleep 10
+#         done
 
-        # Deploy app via SSH
-        echo "👉 Deploying via SSH to $PUBLIC_IPV4"
-        ssh -i "$SSH_KEY_NAME" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@$PUBLIC_IPV4" << EOF
-        echo "🚀 Starting deployment on EC2..."
-        aws s3 cp s3://$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh --region $AWS_REGION
-        chmod +x /tmp/node-deploy.sh
-        bash /tmp/node-deploy.sh
-        echo "✅ Deployment completed on \$(hostname)"
-EOF
-    else
-        echo "❌ No public IP found for instance $INSTANCE_ID"
-    fi
-done
+#         # Deploy app via SSH
+#         echo "👉 Deploying via SSH to $PUBLIC_IPV4"
+#         ssh -i "$SSH_KEY_NAME" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$SSH_USER@$PUBLIC_IPV4" << EOF
+#         echo "🚀 Starting deployment on EC2..."
+#         aws s3 cp s3://$TF_STATE_BUCKET/scripts/node-deploy.sh /tmp/node-deploy.sh --region $AWS_REGION
+#         chmod +x /tmp/node-deploy.sh
+#         bash /tmp/node-deploy.sh
+#         echo "✅ Deployment completed on \$(hostname)"
+# EOF
+#     else
+#         echo "❌ No public IP found for instance $INSTANCE_ID"
+#     fi
+# done
 
-# ==== Final Steps ==== 
-echo ""
-echo "🎉 Deployment process completed!"
-echo ""
-echo "📋 Summary:"
-echo "  - Processed instances: $INSTANCE_IDS"
-echo "  - Region: $AWS_REGION"
-echo ""
-echo "🌐 Your application should be accessible via the EC2 public IPs"
-echo "💡 Check EC2 console for public IPs and ensure security groups allow HTTP traffic"
+# # ==== Final Steps ==== 
+# echo ""
+# echo "🎉 Deployment process completed!"
+# echo ""
+# echo "📋 Summary:"
+# echo "  - Processed instances: $INSTANCE_IDS"
+# echo "  - Region: $AWS_REGION"
+# echo ""
+# echo "🌐 Your application should be accessible via the EC2 public IPs"
+# echo "💡 Check EC2 console for public IPs and ensure security groups allow HTTP traffic"
