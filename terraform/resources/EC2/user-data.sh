@@ -21,35 +21,13 @@ efs1_dns_name="${efs1_dns_name}"
 efs2_dns_name="${efs2_dns_name}"
 efs3_dns_name="${efs3_dns_name}"
 
-# === Fetch EC2 Metadata using IMDSv2 (optional fallback) ===
-TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-METADATA_BASE="http://169.254.169.254/latest/meta-data"
-PUBLIC_IPV4=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/public-ipv4")
-
-
-if [ -z "$AWS_REGION" ]; then
-  AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "$METADATA_BASE/placement/availability-zone" | sed 's/[a-z]$//')
-fi
-
-export AZ AWS_REGION PUBLIC_IPV4 hostname
-
-echo "EC2 is running in Availability Zone: $AZ"
-echo "Derived AWS Region: $AWS_REGION"
-echo "Public IP: $PUBLIC_IPV4"
-
-# === Host Setup ===
-hostnamectl set-hostname "$hostname"
-echo "127.0.0.1   localhost $hostname" >> /etc/hosts
-echo "export PS1='$hostname \$ '" >> /etc/bashrc
-source /etc/bashrc
-
 # === System Preparation ===
 echo ">>> Installing required packages..."
 dnf update -y
-dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync vsftpd
-runuser -l ssm-user -c 'npm install -g pm2'
+dnf install -y amazon-efs-utils nfs-utils nodejs npm rsync
 
 # === Create EFS Mount Points ===
+echo ">>> Creating EFS mount points..."
 mkdir -p /mnt/efs/{code,data,logs}
 
 # === Mount EFS Filesystems with Retry (TLS) ===
@@ -79,25 +57,15 @@ mount_efs_with_retry "$efs1_dns_name" /mnt/efs/code
 mount_efs_with_retry "$efs2_dns_name" /mnt/efs/data
 mount_efs_with_retry "$efs3_dns_name" /mnt/efs/logs
 
-# === Enable EFS Logging ===
-exec > >(tee /var/log/user-data.log | tee /mnt/efs/logs/init.log) 2>&1
-echo ">>> EFS logging now active at $(date)"
-
-# === Permissions ===
-chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
-chmod -R 755 /mnt/efs/{logs,data,code}
-
 # === Persistent Mounts ===
+echo ">>> Adding EFS to /etc/fstab for persistence..."
 cat >> /etc/fstab <<EOF
 ${efs1_dns_name}:/ /mnt/efs/code efs _netdev,tls 0 0
 ${efs2_dns_name}:/ /mnt/efs/data efs _netdev,tls 0 0
 ${efs3_dns_name}:/ /mnt/efs/logs efs _netdev,tls 0 0
 EOF
 
-echo ">>> fstab entries:"
-grep amazonaws /etc/fstab || echo "No EFS entries found in fstab"
-
-# === Application .env ===
+# === Setup App Environment ===
 mkdir -p /mnt/efs/code/nodejs-app
 cat > /mnt/efs/code/nodejs-app/.env <<EOF
 NODE_ENV=production
@@ -105,12 +73,22 @@ PORT=3000
 LOG_LEVEL=info
 AWS_REGION=${AWS_REGION}
 AVAILABILITY_ZONE=${AZ}
-PUBLIC_IP=$PUBLIC_IPV4
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 HOSTNAME=${hostname}
-LOG_FILE=/mnt/efs/logs/app-${hostname}.log
+LOG_FILE=/mnt/efs/logs/$(date +%Y-%m-%d)/app-${hostname}.log
 EOF
 
+# === Create Log Directory for Today ===
+today_date=$(date +%Y-%m-%d)
+mkdir -p "/mnt/efs/logs/$today_date"
+
+# === Permissions Setup ===
+echo ">>> Setting up permissions for EFS directories..."
+chown -R ssm-user:ssm-user /mnt/efs/{logs,data,code}
+chmod -R 755 /mnt/efs/{logs,data,code}
+
 # === Log Rotation ===
+echo ">>> Configuring log rotation for Node.js app..."
 cat > /etc/logrotate.d/nodejs-app <<EOF
 /mnt/efs/logs/*.log {
     daily
@@ -126,22 +104,8 @@ cat > /etc/logrotate.d/nodejs-app <<EOF
 }
 EOF
 
-# === FTP Setup ===
-cat >> /etc/vsftpd/vsftpd.conf <<EOF
-local_root=/mnt/efs
-chroot_local_user=YES
-allow_writeable_chroot=YES
-userlist_enable=YES
-userlist_file=/etc/vsftpd/userlist
-userlist_deny=NO
-EOF
-
-echo "ssm-user" >> /etc/vsftpd/userlist
-systemctl enable vsftpd
-systemctl start vsftpd
-
 # === Final EFS Log File Setup ===
-LOG_FILE="/mnt/efs/logs/app-${hostname}.log"
+LOG_FILE="/mnt/efs/logs/$today_date/app-${hostname}.log"
 touch "$LOG_FILE"
 chown ssm-user:ssm-user "$LOG_FILE"
 
@@ -152,7 +116,3 @@ echo ">>> EFS directories:"
 ls -la /mnt/efs/
 
 echo "EC2 provisioning completed successfully at $(date)"
-
-
-
-

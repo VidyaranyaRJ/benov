@@ -443,8 +443,8 @@ terraform init \
 
 terraform plan -input=false -out=tfplan
 # FIX: Apply instead of destroy!
-terraform apply -auto-approve tfplan
-# terraform destroy -auto-approve  # ← REMOVED: This was destroying your instances!
+# terraform apply -auto-approve tfplan
+terraform destroy -auto-approve  # ← REMOVED: This was destroying your instances!
 
 cd ../../..
 
