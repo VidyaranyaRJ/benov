@@ -50,46 +50,56 @@ resource "aws_instance" "benevolate_ec2_instance" {
 
   user_data = <<-EOF
               #!/bin/bash
-              
+
               # Update packages
               sudo apt-get update -y
               sudo apt-get install -y nfs-common git binutils python3-pip curl unzip
               sudo pip3 install botocore
-              
+
               # Set alias for python and pip
               echo "alias python=python3" | sudo tee -a /etc/bash.bashrc
               echo "alias pip=pip3" | sudo tee -a /etc/bash.bashrc
-              
+
               # Create directories for EFS mounts
               sudo mkdir -p /mnt/efs/code
               sudo mkdir -p /mnt/efs/data
               sudo mkdir -p /mnt/efs/logs
-              
+
               # Clone EFS utils repository
               git clone https://github.com/aws/efs-utils
               cd ./efs-utils
-              
+
               # Build and install EFS utilities
               sudo ./build-deb.sh
               sudo apt-get install -y ./build/amazon-efs-utils*deb
-              
+
+              # Print EFS DNS names
+              echo ">>> EFS DNS names:"
+              echo "Code: ${var.efs_code_id}:/"
+              echo "Data: ${var.efs_data_id}:/"
+              echo "Logs: ${var.efs_logs_id}:/"
+
               # Mount the EFS file systems
               echo ">>> Mounting EFS file systems..."
-              
+
               # Mount EFS1 (Code)
               sudo mount -t efs -o tls,iam ${var.efs_code_id}:/ /mnt/efs/code
-              
+
               # Mount EFS2 (Data)
               sudo mount -t efs -o tls,iam ${var.efs_data_id}:/ /mnt/efs/data
-              
+
               # Mount EFS3 (Logs)
               sudo mount -t efs -o tls,iam ${var.efs_logs_id}:/ /mnt/efs/logs
-              
+
               # Add EFS to fstab for persistence
               echo '${var.efs_code_id}:/ /mnt/efs/code efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
               echo '${var.efs_data_id}:/ /mnt/efs/data efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
               echo '${var.efs_logs_id}:/ /mnt/efs/logs efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
-              
+
+              # Print current mounts
+              echo ">>> Current mounts:"
+              mount | grep /mnt/efs
+
               # Install AWS CLI
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
               unzip awscliv2.zip
