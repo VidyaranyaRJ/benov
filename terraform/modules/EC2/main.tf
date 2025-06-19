@@ -87,7 +87,7 @@ module "instance_1" {
   sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
-  ec2_tag_name                = local.ec2_tag_name_tag1
+  ec2_tag_name                = local.ec2_tag_name_tag2
   hostname                   = local.hostname_instance_2
    
  }
@@ -100,7 +100,7 @@ module "instance_3" {
   sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
-  ec2_tag_name                = local.ec2_tag_name_tag1
+  ec2_tag_name                = local.ec2_tag_name_tag3
   hostname = local.hostname_instance_3
   
 }
@@ -113,7 +113,7 @@ module "instance_4" {
   sg_id                       = data.terraform_remote_state.security_group.outputs.module_benevolate_security_group_id
   associate_public_ip_address = true
   key_name                    = "vj-Benevolate"
-  ec2_tag_name                = local.ec2_tag_name_tag1
+  ec2_tag_name                = local.ec2_tag_name_tag4
   hostname = local.hostname_instance_4
 }
 
