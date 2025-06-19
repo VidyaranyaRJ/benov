@@ -104,6 +104,15 @@ data "aws_iam_instance_profile" "ecs_profile" {
 
 
 
+data "terraform_remote_state" "efs" {
+  backend = "s3"
+  config = {
+    bucket = "vj-test-benvolate"
+    key    = "EFS/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
 
 
 resource "aws_instance" "benevolate_ec2_instance" {
