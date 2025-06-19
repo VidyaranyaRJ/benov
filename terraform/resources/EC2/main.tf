@@ -114,7 +114,6 @@ data "terraform_remote_state" "efs" {
 }
 
 
-
 resource "aws_instance" "benevolate_ec2_instance" {
   ami                         = var.ami
   instance_type               = "t2.micro"
@@ -126,23 +125,45 @@ resource "aws_instance" "benevolate_ec2_instance" {
 
   user_data = <<-EOF
               #!/bin/bash
+              
+              # Log all output for debugging
+              exec > >(tee /var/log/user-data.log)
+              exec 2>&1
+              
+              echo ">>> Starting user data script execution..."
+              date
 
               # Update packages
+              echo ">>> Updating packages..."
               sudo yum update -y
-              sudo yum install -y nfs-utils amazon-efs-utils curl unzip python3-pip
+
+              # Install required packages
+              echo ">>> Installing packages..."
+              sudo yum install -y nfs-utils curl unzip python3-pip
+
+              # Install amazon-efs-utils for Amazon Linux 2023
+              echo ">>> Installing amazon-efs-utils..."
+              sudo yum install -y amazon-efs-utils || {
+                  echo ">>> amazon-efs-utils not available in repo, installing manually..."
+                  cd /tmp
+                  sudo yum install -y git make rpm-build
+                  git clone https://github.com/aws/efs-utils
+                  cd efs-utils
+                  make rpm
+                  sudo yum install -y ./build/amazon-efs-utils*rpm
+              }
 
               # Set alias for python and pip
+              echo ">>> Setting up Python aliases..."
               echo "alias python=python3" | sudo tee -a /etc/bashrc
               echo "alias pip=pip3" | sudo tee -a /etc/bashrc
-
-              # Reload bashrc to apply changes
-              source /etc/bashrc
 
               # Install AWS CLI
               echo ">>> Installing AWS CLI..."
               curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
               unzip awscliv2.zip
               sudo ./aws/install
+              rm -rf aws awscliv2.zip
 
               # Create directories for EFS mounts
               echo ">>> Creating directories for EFS mounts..."
@@ -150,31 +171,69 @@ resource "aws_instance" "benevolate_ec2_instance" {
               sudo mkdir -p /mnt/efs/data
               sudo mkdir -p /mnt/efs/logs
 
-              # Define EFS DNS names dynamically using values from terraform_remote_state
+              # Set proper permissions
+              sudo chown ec2-user:ec2-user /mnt/efs/code /mnt/efs/data /mnt/efs/logs
+
+              # Define EFS DNS names from Terraform interpolation
               EFS_CODE_DNS="${data.terraform_remote_state.efs.outputs.module_efs1_dns_name}"
               EFS_DATA_DNS="${data.terraform_remote_state.efs.outputs.module_efs2_dns_name}"
               EFS_LOGS_DNS="${data.terraform_remote_state.efs.outputs.module_efs3_dns_name}"
 
-              # Mount the EFS file systems
-              echo ">>> Mounting EFS file systems:"
-              sudo mount -t efs -o tls,iam $${EFS_CODE_DNS}:/ /mnt/efs/code
-              sudo mount -t efs -o tls,iam $${EFS_DATA_DNS}:/ /mnt/efs/data
-              sudo mount -t efs -o tls,iam $${EFS_LOGS_DNS}:/ /mnt/efs/logs
+              echo ">>> EFS DNS Names:"
+              echo "Code EFS: $EFS_CODE_DNS"
+              echo "Data EFS: $EFS_DATA_DNS"
+              echo "Logs EFS: $EFS_LOGS_DNS"
 
-              # Add EFS to fstab for persistence
-              echo '$${EFS_CODE_DNS}:/ /mnt/efs/code efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
-              echo '$${EFS_DATA_DNS}:/ /mnt/efs/data efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
-              echo '$${EFS_LOGS_DNS}:/ /mnt/efs/logs efs tls,iam,_netdev 0 0' | sudo tee -a /etc/fstab
+              # Check if EFS DNS names are valid
+              if [[ -z "$EFS_CODE_DNS" || -z "$EFS_DATA_DNS" || -z "$EFS_LOGS_DNS" ]]; then
+                  echo ">>> ERROR: One or more EFS DNS names are empty!"
+                  echo ">>> Skipping EFS mount operations..."
+                  exit 1
+              fi
+
+              # Mount the EFS file systems
+              echo ">>> Mounting EFS file systems..."
+              sudo mount -t efs -o tls,iam $EFS_CODE_DNS:/ /mnt/efs/code
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Code EFS"
+              else
+                  echo ">>> Failed to mount Code EFS"
+              fi
+
+              sudo mount -t efs -o tls,iam $EFS_DATA_DNS:/ /mnt/efs/data
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Data EFS"
+              else
+                  echo ">>> Failed to mount Data EFS"
+              fi
+
+              sudo mount -t efs -o tls,iam $EFS_LOGS_DNS:/ /mnt/efs/logs
+              if [ $? -eq 0 ]; then
+                  echo ">>> Successfully mounted Logs EFS"
+              else
+                  echo ">>> Failed to mount Logs EFS"
+              fi
+
+              # Add EFS to fstab for persistence (only if mounts were successful)
+              echo ">>> Adding EFS entries to /etc/fstab..."
+              if mountpoint -q /mnt/efs/code; then
+                  echo "$EFS_CODE_DNS:/ /mnt/efs/code efs tls,iam,_netdev 0 0" | sudo tee -a /etc/fstab
+              fi
+
+              if mountpoint -q /mnt/efs/data; then
+                  echo "$EFS_DATA_DNS:/ /mnt/efs/data efs tls,iam,_netdev 0 0" | sudo tee -a /etc/fstab
+              fi
+
+              if mountpoint -q /mnt/efs/logs; then
+                  echo "$EFS_LOGS_DNS:/ /mnt/efs/logs efs tls,iam,_netdev 0 0" | sudo tee -a /etc/fstab
+              fi
 
               # Print current mounts
-              echo ">>> Current mounts:"
+              echo ">>> Current EFS mounts:"
               mount | grep /mnt/efs
 
-              # Install AWS CLI (duplicate - you might want to remove this)
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install
-
+              echo ">>> User data script completed!"
+              date
               EOF
 
   tags = {
