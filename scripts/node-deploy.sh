@@ -178,7 +178,7 @@ df -h -t nfs4 | grep -E "(amazonaws|efs)" || echo "No EFS mounts found"
 # 🕒 Waiting 3 minutes to ensure EFS mounts stabilize
 echo "⏳ Sleeping for 3 minutes..."
 
-SECONDS_LEFT=180
+SECONDS_LEFT=30
 while [ $SECONDS_LEFT -gt 0 ]; do
   echo "⏳ $SECONDS_LEFT seconds remaining..."
   sleep 10

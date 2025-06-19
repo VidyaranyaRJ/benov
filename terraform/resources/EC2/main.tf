@@ -212,9 +212,9 @@ resource "aws_instance" "benevolate_ec2_instance" {
                   echo ">>> Failed to mount Logs EFS"
               fi
 
-              # Add wait time for EFS to settle
-              echo ">>> Waiting for 3 minutes to ensure EFS mounts stabilize..."
-              sleep 180
+              # # Add wait time for EFS to settle
+              # echo ">>> Waiting for 3 minutes to ensure EFS mounts stabilize..."
+              # sleep 180
 
               # Add EFS to fstab for persistence (only if mounts were successful)
               echo ">>> Adding EFS entries to /etc/fstab..."
