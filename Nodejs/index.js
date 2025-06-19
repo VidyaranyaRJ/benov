@@ -154,7 +154,7 @@ app.get('/', (req, res) => {
       </div>
       
       <div class="container">
-        <h1>⏰ Live GMT Time Monitor</h1>
+        <h1>⏰ Live - GMT Time Monitor</h1>
         <div id="time">Loading...</div>
         <div class="stats">
           <div>Visit Count: <span id="visitCount">${visitCount}</span></div>
