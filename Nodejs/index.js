@@ -63,22 +63,43 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     let refreshCount=0,isOnline=!0;
     async function updateTime(){
       try{
-        const e=await fetch('/time');
-        if(!e.ok)throw new Error('HTTP '+e.status);
-        const t=await e.json();
-        document.getElementById('time').innerText=t.time,
-        document.getElementById('visitCount').innerText=t.visitCount,
-        document.getElementById('uniqueVisitors').innerText=t.uniqueVisitors||0;
-        const n=document.getElementById('statusIndicator');
-        n.innerHTML='🟢 LIVE ',n.style.background='rgba(76, 175, 80, 0.9)',
-        isOnline||(isOnline=!0,showLogIndicator('🟢 Connection restored!')),
-        showLogIndicator()
-      }catch(e){
-        console.error('Error fetching time:',e),
-        document.getElementById('time').innerText='Error loading time';
-        const t=document.getElementById('statusIndicator');
-        t.innerHTML='🔴 OFFLINE',t.style.background='rgba(244, 67, 54, 0.9)',
-        isOnline&&(isOnline=!1,showLogIndicator('🔴 Connection lost!',5e3))
+        console.log('Fetching time from /time endpoint...');
+        const response = await fetch('/time');
+        console.log('Response status:', response.status);
+        
+        if(!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Time data received:', data);
+        
+        document.getElementById('time').innerText = data.time;
+        document.getElementById('visitCount').innerText = data.visitCount;
+        document.getElementById('uniqueVisitors').innerText = data.uniqueVisitors || 0;
+        
+        const statusEl = document.getElementById('statusIndicator');
+        statusEl.innerHTML = '🟢 LIVE ';
+        statusEl.style.background = 'rgba(76, 175, 80, 0.9)';
+        
+        if(!isOnline) {
+          isOnline = true;
+          showLogIndicator('🟢 Connection restored!');
+        }
+        
+        showLogIndicator();
+      } catch(error) {
+        console.error('Error fetching time:', error);
+        document.getElementById('time').innerText = `Error: ${error.message}`;
+        
+        const statusEl = document.getElementById('statusIndicator');
+        statusEl.innerHTML = '🔴 OFFLINE';
+        statusEl.style.background = 'rgba(244, 67, 54, 0.9)';
+        
+        if(isOnline) {
+          isOnline = false;
+          showLogIndicator('🔴 Connection lost!', 5000);
+        }
       }
     }
     async function manualRefresh(){
@@ -110,14 +131,18 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Async logging to prevent blocking
+// Async logging to prevent blocking (with error handling)
 const asyncLog = (message, type = 'INFO') => {
-  // Non-blocking logging
+  // Non-blocking logging with error handling
   setImmediate(() => {
     try {
-      writeLog(message, type);
+      if (typeof writeLog === 'function') {
+        writeLog(message, type);
+      } else {
+        console.log(`[${type}] ${message}`);
+      }
     } catch (error) {
-      console.error('Logging error:', error);
+      console.error('Logging error:', error.message);
     }
   });
 };
@@ -125,9 +150,13 @@ const asyncLog = (message, type = 'INFO') => {
 const asyncCloudWatchLog = (message) => {
   setImmediate(() => {
     try {
-      logToCloudWatch(message);
+      if (typeof logToCloudWatch === 'function') {
+        logToCloudWatch(message);
+      } else {
+        console.log(`[CLOUDWATCH] ${message}`);
+      }
     } catch (error) {
-      console.error('CloudWatch logging error:', error);
+      console.error('CloudWatch logging error:', error.message);
     }
   });
 };
@@ -172,34 +201,58 @@ app.get('/', (req, res) => {
   res.send(html);
 });
 
-// Optimized time endpoint with minimal processing
+// Optimized time endpoint with error handling
 app.get('/time', (req, res) => {
-  const now = new Date();
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const seconds = now.getSeconds().toString().padStart(2, '0');
-  
-  // Pre-computed day names array
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOfWeek = dayNames[now.getDay()];
-  
-  const timeString = `${dayOfWeek} ${hours}:${minutes}:${seconds}`;
-  
-  // Reduced logging frequency (every 30 seconds instead of 10)
-  if (seconds % 30 === 0) {
-    const clientIp = getClientIp(req);
-    asyncLog(`[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`);
-    asyncCloudWatchLog(`⏱️ [TIME] Requested by ${clientIp}`);
+  try {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    
+    // Pre-computed day names array
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dayOfWeek = dayNames[now.getDay()];
+    
+    const timeString = `${dayOfWeek} ${hours}:${minutes}:${seconds}`;
+    
+    // Reduced logging frequency (every 30 seconds instead of 10)
+    if (seconds % 30 === 0) {
+      try {
+        const clientIp = getClientIp(req);
+        asyncLog(`[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`);
+        asyncCloudWatchLog(`⏱️ [TIME] Requested by ${clientIp}`);
+      } catch (logError) {
+        console.error('Logging error in /time:', logError);
+      }
+    }
+    
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    
+    // Fast JSON response
+    res.status(200).json({
+      time: `🟢 ${timeString} - Server: ${HOSTNAME}`,
+      visitCount: stats.visitCount,
+      uniqueVisitors: stats.uniqueVisitors.size,
+      hostname: HOSTNAME,
+      timestamp: now.toISOString(),
+      status: 'success'
+    });
+  } catch (error) {
+    console.error('Error in /time endpoint:', error);
+    
+    // Log the error asynchronously
+    asyncLog(`[ERROR] TIME_ENDPOINT_ERROR - ${error.message} - Stack: ${error.stack}`);
+    
+    // Send error response
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message,
+      timestamp: new Date().toISOString(),
+      status: 'error'
+    });
   }
-  
-  // Fast JSON response
-  res.json({
-    time: `🟢 ${timeString} - Server: ${HOSTNAME}`,
-    visitCount: stats.visitCount,
-    uniqueVisitors: stats.uniqueVisitors.size,
-    hostname: HOSTNAME,
-    timestamp: now.toISOString()
-  });
 });
 
 // Optimized manual refresh endpoint
@@ -253,6 +306,39 @@ app.post('/clear-logs', async (req, res) => {
       timestamp: new Date().toISOString()
     });
   }
+});
+
+// Debug endpoint for troubleshooting
+app.get('/debug', (req, res) => {
+  const memUsage = process.memoryUsage();
+  const cpuUsage = process.cpuUsage();
+  
+  res.json({
+    status: 'debug',
+    timestamp: new Date().toISOString(),
+    server: {
+      hostname: HOSTNAME,
+      uptime: process.uptime(),
+      version: process.version,
+      platform: process.platform,
+      pid: process.pid
+    },
+    memory: {
+      rss: Math.round(memUsage.rss / 1024 / 1024) + 'MB',
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + 'MB',
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + 'MB',
+      external: Math.round(memUsage.external / 1024 / 1024) + 'MB'
+    },
+    stats: {
+      visitCount: stats.visitCount,
+      uniqueVisitors: stats.uniqueVisitors.size,
+      startTime: new Date(stats.startTime).toISOString()
+    },
+    env: {
+      nodeEnv: process.env.NODE_ENV || 'development',
+      port: port
+    }
+  });
 });
 
 // Fast health check with cached uptime calculation
