@@ -49,7 +49,7 @@ async function logToCloudWatch(message) {
   try {
     const today = getTodayDateStr();
     const hostname = os.hostname();
-    const logStreamName = `${today}-${hostname}-app`;
+    const logStreamName = `${today}/${hostname}/node-app.log`;
 
     if (currentDate !== today || !sequenceTokenCache[today]) {
       try {
