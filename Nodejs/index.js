@@ -60,7 +60,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
   </div>
   <div id="logIndicator" class="log-indicator">Log sent to CloudWatch! 📊</div>
   <script>
-    let refreshCount=0,isOnline=!0;
+    let refreshCount=0,isOnline=true;
     async function updateTime(){
       try{
         console.log('Fetching time from /time endpoint...');
@@ -68,7 +68,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         console.log('Response status:', response.status);
         
         if(!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error('HTTP ' + response.status + ': ' + response.statusText);
         }
         
         const data = await response.json();
@@ -78,7 +78,7 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         document.getElementById('visitCount').innerText = data.visitCount;
         document.getElementById('uniqueVisitors').innerText = data.uniqueVisitors || 0;
         
-        const statusEl = document.getElementById('statusIndicator');
+        const statusEl = document.querySelector('.status-indicator');
         statusEl.innerHTML = '🟢 LIVE ';
         statusEl.style.background = 'rgba(76, 175, 80, 0.9)';
         
@@ -90,9 +90,9 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
         showLogIndicator();
       } catch(error) {
         console.error('Error fetching time:', error);
-        document.getElementById('time').innerText = `Error: ${error.message}`;
+        document.getElementById('time').innerText = 'Error: ' + error.message;
         
-        const statusEl = document.getElementById('statusIndicator');
+        const statusEl = document.querySelector('.status-indicator');
         statusEl.innerHTML = '🔴 OFFLINE';
         statusEl.style.background = 'rgba(244, 67, 54, 0.9)';
         
@@ -105,28 +105,33 @@ const HTML_TEMPLATE = `<!DOCTYPE html>
     async function manualRefresh(){
       refreshCount++;
       try{
-        await fetch('/manual-refresh',{method:'POST'}),
-        showLogIndicator('🔄 Manual refresh logged!')
+        await fetch('/manual-refresh',{method:'POST'});
+        showLogIndicator('🔄 Manual refresh logged!');
       }catch(e){
-        console.error('Manual refresh error:',e),
-        showLogIndicator('❌ Refresh failed!',3e3)
+        console.error('Manual refresh error:',e);
+        showLogIndicator('❌ Refresh failed!',3000);
       }
-      await updateTime()
+      await updateTime();
     }
-    function viewLogs(){window.open('/logs','_blank')}
-    function viewHealth(){window.open('/health','_blank')}
-    function showLogIndicator(e='Log sent to CloudWatch! 📊',t=2e3){
-      const n=document.getElementById('logIndicator');
-      n.innerText=e,n.classList.add('show'),
-      setTimeout(()=>{n.classList.remove('show')},t)
+    function viewLogs(){window.open('/logs','_blank');}
+    function viewHealth(){window.open('/health','_blank');}
+    function showLogIndicator(message='Log sent to CloudWatch! 📊',duration=2000){
+      const indicator=document.getElementById('logIndicator');
+      indicator.innerText=message;
+      indicator.classList.add('show');
+      setTimeout(function(){indicator.classList.remove('show');},duration);
     }
-    window.addEventListener('load',()=>{updateTime(),setInterval(updateTime,1e4)}),
-    setInterval(updateTime,1e4),
-    document.addEventListener('visibilitychange',()=>{
-      document.hidden||fetch('/page-focus',{method:'POST'}).catch(console.error)
-    }),
-    window.addEventListener('online',()=>{showLogIndicator('🟢 Back online!',3e3)}),
-    window.addEventListener('offline',()=>{showLogIndicator('🔴 Gone offline!',3e3)})
+    window.addEventListener('load',function(){
+      updateTime();
+      setInterval(updateTime,10000);
+    });
+    document.addEventListener('visibilitychange',function(){
+      if(!document.hidden){
+        fetch('/page-focus',{method:'POST'}).catch(console.error);
+      }
+    });
+    window.addEventListener('online',function(){showLogIndicator('🟢 Back online!',3000);});
+    window.addEventListener('offline',function(){showLogIndicator('🔴 Gone offline!',3000);});
   </script>
 </body>
 </html>`;
