@@ -5,20 +5,23 @@ const path = require('path');
 // Load environment variables from .env
 require('dotenv').config();
 
+
+const { logToCloudWatch } = require('./cloudwatch-logger');
+
 const writeLog = require('./logger'); 
 const app = express();
 const port = process.env.PORT || 3000;
 
 
-// Add cache control for all responses
-app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'public, max-age=60');
-  next();
-});
+
 
 
 // Get hostname once at startup
 const HOSTNAME = os.hostname();
+
+
+logToCloudWatch(`🚀 Node.js app started on host ${HOSTNAME}`);
+
 
 // Track page visits
 let visitCount = 0;
@@ -41,6 +44,9 @@ app.use((req, res, next) => {
 
 // Serve the static HTML page
 app.get('/', (req, res) => {
+  logToCloudWatch(`🏠 [HOME] Visit from ${req.ip}`);
+
+
   visitCount++;
   const clientIp = req.headers['x-forwarded-for'] || 
                    req.headers['x-real-ip'] || 
@@ -273,6 +279,8 @@ app.get('/', (req, res) => {
 
 // API endpoint to return time data
 app.get('/time', (req, res) => {
+  logToCloudWatch(`⏱️ [TIME] Requested by ${req.ip}`);
+
   const now = new Date();
   const hours = now.getHours().toString().padStart(2, '0');
   const minutes = now.getMinutes().toString().padStart(2, '0');
@@ -545,6 +553,8 @@ app.use((err, req, res, next) => {
 
 // Enhanced health check
 app.get('/health', (req, res) => {
+  logToCloudWatch(`💓 [HEALTH] Check from ${req.ip}`);
+
   const uptime = process.uptime();
   const memUsage = process.memoryUsage();
   const loadAvg = os.loadavg();
@@ -775,6 +785,7 @@ app.get('/health', (req, res) => {
 
 // Start the server
 app.listen(port, () => {
+  logToCloudWatch(`✅ Server listening on port ${port}`);
   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
     console.log(`Server running at http://localhost:${port}`);
 });
