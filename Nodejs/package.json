@@ -4,13 +4,19 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["express", "monitoring", "cloudwatch", "time-server"],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Live time monitoring application with CloudWatch logging",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "compression": "^1.7.4",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
