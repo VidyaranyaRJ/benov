@@ -804,13 +804,26 @@ app.get('/', (req, res) => {
   res.send(bigString);
 });
 
-// Start the server
-app.listen(port, () => {
+// // Start the server
+// app.listen(port, () => {
+//   logToCloudWatch(`✅ Server listening on port ${port}`);
+//   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
+//     console.log(`Server running at http://localhost:${port}`);
+// });
+
+
+const http = require('http');
+const server = http.createServer(app);
+
+// Keep TCP connections alive across ALB and clients
+server.keepAliveTimeout = 65000;     // Keep-alive for 65 seconds (ALB default is 60s)
+server.headersTimeout = 66000;       // Must be > keepAliveTimeout
+
+server.listen(port, () => {
   logToCloudWatch(`✅ Server listening on port ${port}`);
   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
-    console.log(`Server running at http://localhost:${port}`);
+  console.log(`Server running at http://localhost:${port}`);
 });
-
 
 
 
