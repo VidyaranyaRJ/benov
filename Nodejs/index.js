@@ -5,14 +5,14 @@ const path = require('path');
 // Load environment variables from .env
 require('dotenv').config();
 
+const compression = require('compression');
 
 const { logToCloudWatch } = require('./cloudwatch-logger');
 
 const writeLog = require('./logger'); 
 const app = express();
+app.use(compression());
 const port = process.env.PORT || 3000;
-
-
 
 
 
