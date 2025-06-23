@@ -799,6 +799,11 @@ app.get('/compression-test', (req, res) => {
   res.send('This is a compression test string that should be long enough to trigger compression if GZIP is enabled.');
 });
 
+app.get('/', (req, res) => {
+  const bigString = 'Hello world. '.repeat(1000); // ~13KB
+  res.send(bigString);
+});
+
 // Start the server
 app.listen(port, () => {
   logToCloudWatch(`✅ Server listening on port ${port}`);
