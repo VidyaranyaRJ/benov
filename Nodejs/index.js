@@ -3,8 +3,10 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 // Load environment variables from .env
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 
+const promiseDB   = require('./db');
+const { faker }   = require('@faker-js/faker');
 const compression = require('compression');
 
 const { logToCloudWatch } = require('./cloudwatch-logger');
@@ -33,6 +35,52 @@ const HOSTNAME = os.hostname();
 
 
 logToCloudWatch(`🚀 Node.js app started on host ${HOSTNAME}`);
+
+// Database
+
+app.post('/insert-random-user', async (req, res) => {
+  try {
+    // Generate a fake name and email
+    const nameParts = faker.person.fullName().split(' ');
+    const firstName = nameParts[0];
+    const lastName  = nameParts[1] || '';
+    const name      = `${firstName} ${lastName}`;
+    const email     = faker.internet.email({ firstName, lastName });
+    const user_type = 'User';
+
+    const insertQuery = `
+      INSERT INTO users (name, email, user_type)
+      VALUES (?, ?, ?)
+    `;
+    await promiseDB.query(insertQuery, [name, email, user_type]);
+
+    res.json({ success: true, name, email });
+  } catch (err) {
+    console.error('Error inserting random user:', err);
+    res.status(500).json({ success: false, error: 'Failed to insert user' });
+  }
+});
+
+// (Optional) A GET to verify you can read back users
+app.get('/users', async (req, res) => {
+  try {
+    const [rows] = await promiseDB.query('SELECT * FROM users');
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`);
+});
+
+
+
+
+
 
 
 // Track page visits
@@ -812,18 +860,136 @@ app.get('/', (req, res) => {
 // });
 
 
-const http = require('http');
-const server = http.createServer(app);
-
-// Keep TCP connections alive across ALB and clients
-server.keepAliveTimeout = 65000;     // Keep-alive for 65 seconds (ALB default is 60s)
-server.headersTimeout = 66000;       // Must be > keepAliveTimeout
-
-server.listen(port, () => {
-  logToCloudWatch(`✅ Server listening on port ${port}`);
-  writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
-  console.log(`Server running at http://localhost:${port}`);
-});
 
 
+
+
+// // ########### SES#####   receiving info in json foramt
+
+// const http = require('http');
+// const server = http.createServer(app);
+
+// // Keep TCP connections alive across ALB and clients
+// server.keepAliveTimeout = 65000;     // Keep-alive for 65 seconds (ALB default is 60s)
+// server.headersTimeout = 66000;       // Must be > keepAliveTimeout
+
+// server.listen(port, () => {
+//   logToCloudWatch(`✅ Server listening on port ${port}`);
+//   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
+//   console.log(`Server running at http://localhost:${port}`);
+// });
+
+// app.use('/sns/notifications', express.text({ type: '*/*' }));
+
+// app.post('/sns/notifications', (req, res) => {
+//     console.log('---- SNS Notifications called ----', formatDateTime(new Date()));
+
+//     // Step 1: Log and capture the SNS message type
+//     const messageType = req.headers['x-amz-sns-message-type'];
+//     console.log('[STEP 1] Received SNS message of type:', messageType);
+
+//     if (!messageType) {
+//         console.error('[ERROR] Missing SNS Message Type.');
+//         res.status(400).send('Missing SNS Message Type');
+//         return;
+//     }
+
+//     // Step 2: Raw Request Body
+//     console.log('[STEP 2] Raw Request Body:', JSON.stringify(req.body));
+//     let message;
+//     try {
+//         message = JSON.parse(req.body); // ✅ assign to outer 'message'
+//         console.log('[STEP 3] Parsed Raw Message:', message);
+//     } catch (err) {
+//         console.error('[ERROR] Failed to parse SNS Raw Message:', err.message);
+//         res.status(400).send('Invalid SNS Message Format');
+//         return;
+//     }
+//     // Step 4: Handle Subscription Confirmation
+//     if (messageType === 'SubscriptionConfirmation') {
+//         console.log('[STEP 4] Handling Subscription Confirmation');
+//         const subscribeURL = message.SubscribeURL;
+
+//         if (subscribeURL) {
+//             console.log('[STEP 4.1] Subscription URL:', subscribeURL);
+
+//             // Automatically confirm subscription
+//             https.get(subscribeURL, (response) => {
+//                 console.log(`[STEP 4.2] Subscription confirmed with status code: ${response.statusCode}`);
+//             }).on('error', (err) => {
+//                 console.error('[ERROR] Failed to confirm subscription:', err.message);
+//             });
+
+//             res.status(200).send('Subscription confirmed');
+//         } else {
+//             console.error('[ERROR] No SubscribeURL found for SubscriptionConfirmation');
+//             res.status(400).send('Invalid SubscriptionConfirmation');
+//         }
+//         return;
+//     }
+//     // Step 5: Handle Notifications
+//     if (messageType === 'Notification') {
+//         console.log('[STEP 5.0] Raw SNS Notification Payload');
+//         console.log('stringified json=',JSON.stringify(message));
+//         // The actual bounce object is inside `message.Message` as a stringified JSON
+//         let bounceWrapper;
+//         try {
+//           bounceWrapper = JSON.parse(message.Message); // << THIS is where the bounce data lives
+//         } catch (parseErr) {
+//           console.error('[ERROR] Failed to parse message.Message:', parseErr);
+//           res.status(400).send('Malformed bounce message');
+//           return;
+//         }
+      
+//         const eventType = bounceWrapper.notificationType;
+//         console.log('Bounce Notification received, type:', eventType);
+      
+//         if (eventType === 'Bounce') {
+//           const bouncedRecipients = bounceWrapper.bounce?.bouncedRecipients || [];
+//           const messageId = bounceWrapper.mail?.messageId;
+          
+//           if (bouncedRecipients.length > 0) {
+//             const emailAddress = bouncedRecipients[0].emailAddress;
+//             console.log('[INFO] Bounced Email Address:', emailAddress);   /* email id bounced*/
+//             console.log('[INFO] Message ID:', messageId);
+      
+//             // Run your DB updates here
+//             // const sql = `
+//             //   UPDATE sent_emails 
+//             //   SET bounce_datetime = NOW(), bounce_report_source = 'AWS_SES_SNS' 
+//             //   WHERE AWS_email_tracking_id = ? 
+//             //   LIMIT 1
+//             // `;
+//             // db.query(sql, [messageId], (err) => {
+//             //   if (err) console.error('[ERROR] Email update failed:', err);
+//             //   else console.log('[INFO] Email status updated');
+//             // });
+      
+//             // const msql = `
+//             //   UPDATE member 
+//             //   SET email_bounced = NOW(), last_updated_by_id = 0, last_update = NOW()
+//             //   WHERE primary_email = ? 
+//             //   LIMIT 1
+//             // `;
+//             // db.query(msql, [emailAddress], (err) => {
+//             //   if (err) console.error('[ERROR] Member update failed:', err);
+//             //   else console.log('[INFO] Member marked as email bounced');
+//             // });
+      
+//           } else {
+//             console.warn('[WARNING] No bouncedRecipients found.');
+//           }
+//         }
+      
+//         res.status(200).send('Notification processed');
+//         return;
+//       }
+      
+
+//     // Step 6: Handle unrecognized message types
+//     console.warn('[STEP 6] Unrecognized message type:', messageType);
+//     res.status(400).send('Unhandled SNS Message Type');
+// });
+
+// // 
 
