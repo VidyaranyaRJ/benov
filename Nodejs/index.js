@@ -847,6 +847,31 @@ app.get('/compression-test', (req, res) => {
   res.send('This is a compression test string that should be long enough to trigger compression if GZIP is enabled.');
 });
 
+
+app.get('/', (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head><title>Insert Random User</title></head>
+    <body>
+      <h1>Users</h1>
+      <button id="add">➕ Insert Random User</button>
+      <pre id="output"></pre>
+      <script>
+        const out = document.getElementById('output');
+        document.getElementById('add').onclick = async () => {
+          const resp = await fetch('/insert-random-user', { method: 'POST' });
+          const data = await resp.json();
+          out.textContent = JSON.stringify(data, null, 2);
+          const users = await fetch('/users').then(r => r.json());
+          out.textContent += '\\n\\nUsers:\\n' + JSON.stringify(users, null, 2);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 app.get('/', (req, res) => {
   const bigString = 'Hello world. '.repeat(1000); // ~13KB
   res.send(bigString);
