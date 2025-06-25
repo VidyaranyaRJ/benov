@@ -230,6 +230,7 @@ app.get('/', (req, res) => {
         <button class="refresh-btn" onclick="manualRefresh()">🔄 Manual Refresh</button>
         <button class="refresh-btn" onclick="viewLogs()">📊 View Logs</button>
         <button class="refresh-btn" onclick="viewHealth()">❤️ Health Check</button>
+        <button class="refresh-btn" onclick="insertRandomUser()">➕ Insert User</button>
       </div>
       
       <div id="logIndicator" class="log-indicator">
@@ -331,6 +332,8 @@ app.get('/', (req, res) => {
         window.addEventListener('offline', () => {
           showLogIndicator('🔴 Gone offline!', 3000);
         });
+
+
       </script>
     </body>
     </html>
@@ -848,7 +851,7 @@ app.get('/compression-test', (req, res) => {
 });
 
 
-app.get('/', (req, res) => {
+app.get('/insert-ui', (req, res) => {
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -872,10 +875,12 @@ app.get('/', (req, res) => {
   `);
 });
 
-app.get('/', (req, res) => {
-  const bigString = 'Hello world. '.repeat(1000); // ~13KB
-  res.send(bigString);
-});
+
+
+// app.get('/', (req, res) => {
+//   const bigString = 'Hello world. '.repeat(1000); // ~13KB
+//   res.send(bigString);
+// });
 
 // // Start the server
 // app.listen(port, () => {
