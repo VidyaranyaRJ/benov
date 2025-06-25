@@ -28,8 +28,59 @@ app.use(compression({
 }));
 
 
-const requestLogger = require('./middleware/requestLogger');
-app.use(requestLogger);
+const port = process.env.PORT || 3000;
+
+// Get hostname once at startup
+const HOSTNAME = os.hostname();
+
+
+logToCloudWatch(`🚀 Node.js app started on host ${HOSTNAME}`);
+
+// Database
+
+app.post('/insert-random-user', async (req, res) => {
+  try {
+    // Generate a fake name and email
+    const nameParts = faker.person.fullName().split(' ');
+    const firstName = nameParts[0];
+    const lastName  = nameParts[1] || '';
+    const name      = `${firstName} ${lastName}`;
+    const email     = faker.internet.email({ firstName, lastName });
+    const user_type = 'User';
+
+    const insertQuery = `
+      INSERT INTO users (name, email, user_type)
+      VALUES (?, ?, ?)
+    `;
+    await promiseDB.query(insertQuery, [name, email, user_type]);
+
+    res.json({ success: true, name, email });
+  } catch (err) {
+    console.error('Error inserting random user:', err);
+    res.status(500).json({ success: false, error: 'Failed to insert user' });
+  }
+});
+
+// (Optional) A GET to verify you can read back users
+app.get('/users', async (req, res) => {
+  try {
+    const [rows] = await promiseDB.query('SELECT * FROM users');
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`);
+});
+
+
+
+
+
 
 
 // Track page visits
@@ -47,71 +98,9 @@ app.use((req, res, next) => {
   const method = req.method;
   const url = req.url;
   
-  const logEntry = `[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`;
-  writeLog(logEntry);
-  logToCloudWatch(logEntry); // non-blocking, async
+  writeLog(`[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`);
   next();
 });
-
-
-
-// Get hostname once at startup
-const HOSTNAME = os.hostname();
-
-
-logToCloudWatch(`🚀 Node.js app started on host ${HOSTNAME}`);
-
-// Database
-
-app.post('/insert-random-user', async (req, res) => {
-  try {
-    const nameParts = faker.person.fullName().split(' ');
-    const firstName = nameParts[0];
-    const lastName  = nameParts[1] || '';
-    const name      = `${firstName} ${lastName}`;
-    const email     = faker.internet.email({ firstName, lastName });
-    const user_type = 'User';
-
-    const insertQuery = `
-      INSERT INTO users (name, email, user_type)
-      VALUES (?, ?, ?)
-    `;
-    await db.query(insertQuery, [name, email, user_type]);
-
-    await logToCloudWatch(`[DB] Inserted user: ${name}, ${email}`);
-
-    res.json({ success: true, name, email });
-  } catch (err) {
-    console.error('Error inserting random user:', err);
-    await logToCloudWatch(`[ERROR] Failed to insert user: ${err.message}`);
-    res.status(500).json({ success: false, error: 'Failed to insert user' });
-  }
-});
-
-
-// (Optional) A GET to verify you can read back users
-app.get('/users', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT * FROM users');
-    await logToCloudWatch(`[DB] Queried all users. Count: ${rows.length}`);
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    await logToCloudWatch(`[ERROR] Failed to fetch users: ${err.message}`);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -122,21 +111,19 @@ app.get('/users', async (req, res) => {
 
 // Serve the static HTML page
 app.get('/', (req, res) => {
+  logToCloudWatch(`🏠 [HOME] Visit from ${req.ip}`);
+
+
+  visitCount++;
   const clientIp = req.headers['x-forwarded-for'] || 
                    req.headers['x-real-ip'] || 
                    req.connection.remoteAddress || 
                    req.socket.remoteAddress || 
                    'unknown';
-
-  visitCount++;
   uniqueVisitors.add(clientIp);
-
-  const logMsg = `🏠 [HOME] Visit #${visitCount} - IP: ${clientIp} - Unique Visitors: ${uniqueVisitors.size}`;
   
-  writeLog(`[PAGE_VIEW] ${logMsg}`);
-  logToCloudWatch(logMsg); // non-blocking log
-
-
+  writeLog(`[PAGE_VIEW] HOME_PAGE_LOADED - Visit #${visitCount} - Unique visitors: ${uniqueVisitors.size} - IP: ${clientIp}`);
+  
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -298,6 +285,17 @@ app.get('/', (req, res) => {
           }
         }
         
+        // async function manualRefresh() {
+        //   refreshCount++;
+        //   try {
+        //     await fetch('/manual-refresh', { method: 'POST' });
+        //     showLogIndicator('🔄 Manual refresh logged!');
+        //   } catch (error) {
+        //     console.error('Manual refresh error:', error);
+        //     showLogIndicator('❌ Refresh failed!', 3000);
+        //   }
+        //   await updateTime();
+        // }
         async function manualRefresh() {
           refreshCount++;
           try {
@@ -322,24 +320,6 @@ app.get('/', (req, res) => {
           }
           await updateTime();
         }
-
-        async function insertRandomUser() {
-          try {
-            const resp = await fetch('/insert-random-user', { method: 'POST' });
-            const data = await resp.json();
-            
-            if (data.success) {
-              showLogIndicator('User inserted: ' + data.name, 3000);
-              console.log('Inserted user:', data);
-            } else {
-              showLogIndicator('❌ Failed to insert user!', 3000);
-            }
-          } catch (error) {
-            console.error('Insert user error:', error);
-            showLogIndicator('❌ Insert failed!', 3000);
-          }
-        }
-        
 
 
         function viewLogs() {
@@ -393,35 +373,29 @@ app.get('/', (req, res) => {
   `);
 });
 
-
-
-
-
-
-//////////////////////////////////////////////////////////////////////////////
 // API endpoint to return time data
 app.get('/time', (req, res) => {
+  logToCloudWatch(`⏱️ [TIME] Requested by ${req.ip}`);
+
   const now = new Date();
-  const seconds = now.getSeconds();
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayOfWeek = days[now.getDay()];
   const clientIp = req.headers['x-forwarded-for'] || 
                    req.headers['x-real-ip'] || 
                    req.connection.remoteAddress || 
                    req.socket.remoteAddress || 
                    'unknown';
-
-  const hours = now.getHours().toString().padStart(2, '0');
-  const minutes = now.getMinutes().toString().padStart(2, '0');
-  const sec = seconds.toString().padStart(2, '0');
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const dayOfWeek = days[now.getDay()];
-  const timeString = `${dayOfWeek} ${hours}:${minutes}:${sec}`;
-
-  if (seconds % 10 === 0) {
-    const logMsg = `[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`;
-    writeLog(logMsg);
-    logToCloudWatch(logMsg); // non-blocking
+  
+  const timeString = `${dayOfWeek} ${hours}:${minutes}:${seconds}`;
+  
+  // Log the time request (reduced frequency to avoid log spam)
+  if (seconds % 10 === 0) { // Log only every 10 seconds
+    writeLog(`[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`);
   }
-
+  
   res.json({
     time: `🟢 ${timeString} - Server: ${HOSTNAME}`,
     visitCount: visitCount,
@@ -430,6 +404,19 @@ app.get('/time', (req, res) => {
     timestamp: now.toISOString()
   });
 });
+
+// Manual refresh endpoint
+// app.post('/manual-refresh', (req, res) => {
+//   const clientIp = req.headers['x-forwarded-for'] || 
+//                    req.headers['x-real-ip'] || 
+//                    req.connection.remoteAddress || 
+//                    req.socket.remoteAddress || 
+//                    'unknown';
+  
+//   writeLog(`[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`);
+  
+//   res.json({ status: 'refresh logged', timestamp: new Date().toISOString() });
+// });
 
 
 
@@ -441,27 +428,22 @@ app.post('/manual-refresh', async (req, res) => {
                    req.socket.remoteAddress ||
                    'unknown';
 
-  const baseMsg = `[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`;
-  writeLog(baseMsg);
-  logToCloudWatch(baseMsg);
+  writeLog(`[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`);
 
+  // Insert a random user on manual refresh
   try {
     const nameParts = faker.person.fullName().split(' ');
     const firstName = nameParts[0];
-    const lastName  = nameParts[1] || '';
-    const name      = `${firstName} ${lastName}`;
-    const email     = faker.internet.email({ firstName, lastName });
+    const lastName = nameParts[1] || '';
+    const name = `${firstName} ${lastName}`;
+    const email = faker.internet.email({ firstName, lastName });
     const user_type = 'RefreshUser';
 
     const insertQuery = `
       INSERT INTO users (name, email, user_type)
       VALUES (?, ?, ?)
     `;
-    await db.query(insertQuery, [name, email, user_type]);
-
-    const dbLog = `[DB_INSERT] User inserted via manual refresh - Name: ${name}, Email: ${email}`;
-    writeLog(dbLog);
-    logToCloudWatch(dbLog);
+    await promiseDB.query(insertQuery, [name, email, user_type]);
 
     res.json({ 
       status: 'refresh logged + user inserted', 
@@ -469,10 +451,7 @@ app.post('/manual-refresh', async (req, res) => {
       timestamp: new Date().toISOString() 
     });
   } catch (err) {
-    const errMsg = `❌ DB_INSERT_FAILED during manual refresh - IP: ${clientIp} - Error: ${err.message}`;
-    writeLog(errMsg);
-    logToCloudWatch(errMsg);
-    
+    console.error('Error during manual refresh user insert:', err);
     res.status(500).json({ 
       success: false, 
       error: 'Refresh logged but failed to insert user',
@@ -480,7 +459,6 @@ app.post('/manual-refresh', async (req, res) => {
     });
   }
 });
-
 
 
 
@@ -492,51 +470,37 @@ app.post('/page-focus', (req, res) => {
                    req.socket.remoteAddress || 
                    'unknown';
   
-  const focusMsg = `[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`;
-  writeLog(focusMsg);
-  logToCloudWatch(focusMsg);
-
+  writeLog(`[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`);
+  
   res.json({ status: 'focus logged', timestamp: new Date().toISOString() });
 });
 
-
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////
 // Logs viewer endpoint
 app.get('/logs', (req, res) => {
-
-
   const clientIp = req.headers['x-forwarded-for'] || 
                    req.headers['x-real-ip'] || 
                    req.connection.remoteAddress || 
                    req.socket.remoteAddress || 
                    'unknown';
-
-  const msg = `[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`;
-  writeLog(msg);
-  logToCloudWatch(msg);
-
-  // Get current log file path
+  
+  writeLog(`[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`);
+  
+  // Get current log file path (same as logger.js)
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   const year = now.getFullYear();
   const logDir = `/mnt/efs/logs/${month}-${day}-${year}/${HOSTNAME}`;
   const logFile = path.join(logDir, 'node-app.log');
-
+  
+  // Read recent log entries
   fs.readFile(logFile, 'utf8', (err, data) => {
     if (err) {
-      const errMsg = `[ERROR] LOG_READ_ERROR - ${err.message}`;
-      writeLog(errMsg);
-      logToCloudWatch(errMsg);
+      writeLog(`[ERROR] LOG_READ_ERROR - ${err.message}`);
       return res.status(500).send('Error reading logs');
     }
-
-    const lines = data.split('\n').filter(line => line.trim()).slice(-100);
-
+    
+    const lines = data.split('\n').filter(line => line.trim()).slice(-100); // Last 100 lines
     
     res.send(`
       <!DOCTYPE html>
@@ -682,10 +646,6 @@ app.get('/logs', (req, res) => {
   });
 });
 
-
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
 // Clear logs endpoint
 app.post('/clear-logs', (req, res) => {
   const clientIp = req.headers['x-forwarded-for'] || 
@@ -695,7 +655,6 @@ app.post('/clear-logs', (req, res) => {
                    'unknown';
   
   writeLog(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
-  logToCloudWatch(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
   
   // Get current log file path (same as logger.js)
   const now = new Date();
@@ -713,14 +672,24 @@ app.post('/clear-logs', (req, res) => {
     }
     
     writeLog(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
-    logToCloudWatch(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
-
-
     res.json({ status: 'logs cleared', timestamp: new Date().toISOString() });
   });
 });
 
-
+// Error handling middleware
+app.use((err, req, res, next) => {
+  const clientIp = req.headers['x-forwarded-for'] || 
+                   req.headers['x-real-ip'] || 
+                   req.connection.remoteAddress || 
+                   req.socket.remoteAddress || 
+                   'unknown';
+  
+  writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
+  res.status(500).json({ 
+    error: 'Something went wrong!', 
+    timestamp: new Date().toISOString() 
+  });
+});
 
 // Enhanced health check
 app.get('/health', (req, res) => {
@@ -953,26 +922,13 @@ app.get('/health', (req, res) => {
   }
 });
 
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////
 app.get('/compression-test', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  writeLog(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
-  logToCloudWatch(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
-
   res.setHeader('Content-Type', 'text/plain');
   res.send('This is a compression test string that should be long enough to trigger compression if GZIP is enabled.');
 });
 
 
 app.get('/insert-ui', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-  writeLog(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
-  logToCloudWatch(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
-
   res.send(`
     <!DOCTYPE html>
     <html>
@@ -998,27 +954,149 @@ app.get('/insert-ui', (req, res) => {
 
 
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
-  
-  writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
-  logToCloudWatch(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);  
+// app.get('/', (req, res) => {
+//   const bigString = 'Hello world. '.repeat(1000); // ~13KB
+//   res.send(bigString);
+// });
 
-
-  res.status(500).json({ 
-    error: 'Something went wrong!', 
-    timestamp: new Date().toISOString() 
-  });
-});
+// // Start the server
+// app.listen(port, () => {
+//   logToCloudWatch(`✅ Server listening on port ${port}`);
+//   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
+//     console.log(`Server running at http://localhost:${port}`);
+// });
 
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`);
-});
+
+
+
+// // ########### SES#####   receiving info in json foramt
+
+// const http = require('http');
+// const server = http.createServer(app);
+
+// // Keep TCP connections alive across ALB and clients
+// server.keepAliveTimeout = 65000;     // Keep-alive for 65 seconds (ALB default is 60s)
+// server.headersTimeout = 66000;       // Must be > keepAliveTimeout
+
+// server.listen(port, () => {
+//   logToCloudWatch(`✅ Server listening on port ${port}`);
+//   writeLog(`SERVER_STARTED - Node.js app listening on port ${port} - Hostname: ${HOSTNAME}`, 'STARTUP');
+//   console.log(`Server running at http://localhost:${port}`);
+// });
+
+// app.use('/sns/notifications', express.text({ type: '*/*' }));
+
+// app.post('/sns/notifications', (req, res) => {
+//     console.log('---- SNS Notifications called ----', formatDateTime(new Date()));
+
+//     // Step 1: Log and capture the SNS message type
+//     const messageType = req.headers['x-amz-sns-message-type'];
+//     console.log('[STEP 1] Received SNS message of type:', messageType);
+
+//     if (!messageType) {
+//         console.error('[ERROR] Missing SNS Message Type.');
+//         res.status(400).send('Missing SNS Message Type');
+//         return;
+//     }
+
+//     // Step 2: Raw Request Body
+//     console.log('[STEP 2] Raw Request Body:', JSON.stringify(req.body));
+//     let message;
+//     try {
+//         message = JSON.parse(req.body); // ✅ assign to outer 'message'
+//         console.log('[STEP 3] Parsed Raw Message:', message);
+//     } catch (err) {
+//         console.error('[ERROR] Failed to parse SNS Raw Message:', err.message);
+//         res.status(400).send('Invalid SNS Message Format');
+//         return;
+//     }
+//     // Step 4: Handle Subscription Confirmation
+//     if (messageType === 'SubscriptionConfirmation') {
+//         console.log('[STEP 4] Handling Subscription Confirmation');
+//         const subscribeURL = message.SubscribeURL;
+
+//         if (subscribeURL) {
+//             console.log('[STEP 4.1] Subscription URL:', subscribeURL);
+
+//             // Automatically confirm subscription
+//             https.get(subscribeURL, (response) => {
+//                 console.log(`[STEP 4.2] Subscription confirmed with status code: ${response.statusCode}`);
+//             }).on('error', (err) => {
+//                 console.error('[ERROR] Failed to confirm subscription:', err.message);
+//             });
+
+//             res.status(200).send('Subscription confirmed');
+//         } else {
+//             console.error('[ERROR] No SubscribeURL found for SubscriptionConfirmation');
+//             res.status(400).send('Invalid SubscriptionConfirmation');
+//         }
+//         return;
+//     }
+//     // Step 5: Handle Notifications
+//     if (messageType === 'Notification') {
+//         console.log('[STEP 5.0] Raw SNS Notification Payload');
+//         console.log('stringified json=',JSON.stringify(message));
+//         // The actual bounce object is inside `message.Message` as a stringified JSON
+//         let bounceWrapper;
+//         try {
+//           bounceWrapper = JSON.parse(message.Message); // << THIS is where the bounce data lives
+//         } catch (parseErr) {
+//           console.error('[ERROR] Failed to parse message.Message:', parseErr);
+//           res.status(400).send('Malformed bounce message');
+//           return;
+//         }
+      
+//         const eventType = bounceWrapper.notificationType;
+//         console.log('Bounce Notification received, type:', eventType);
+      
+//         if (eventType === 'Bounce') {
+//           const bouncedRecipients = bounceWrapper.bounce?.bouncedRecipients || [];
+//           const messageId = bounceWrapper.mail?.messageId;
+          
+//           if (bouncedRecipients.length > 0) {
+//             const emailAddress = bouncedRecipients[0].emailAddress;
+//             console.log('[INFO] Bounced Email Address:', emailAddress);   /* email id bounced*/
+//             console.log('[INFO] Message ID:', messageId);
+      
+//             // Run your DB updates here
+//             // const sql = `
+//             //   UPDATE sent_emails 
+//             //   SET bounce_datetime = NOW(), bounce_report_source = 'AWS_SES_SNS' 
+//             //   WHERE AWS_email_tracking_id = ? 
+//             //   LIMIT 1
+//             // `;
+//             // db.query(sql, [messageId], (err) => {
+//             //   if (err) console.error('[ERROR] Email update failed:', err);
+//             //   else console.log('[INFO] Email status updated');
+//             // });
+      
+//             // const msql = `
+//             //   UPDATE member 
+//             //   SET email_bounced = NOW(), last_updated_by_id = 0, last_update = NOW()
+//             //   WHERE primary_email = ? 
+//             //   LIMIT 1
+//             // `;
+//             // db.query(msql, [emailAddress], (err) => {
+//             //   if (err) console.error('[ERROR] Member update failed:', err);
+//             //   else console.log('[INFO] Member marked as email bounced');
+//             // });
+      
+//           } else {
+//             console.warn('[WARNING] No bouncedRecipients found.');
+//           }
+//         }
+      
+//         res.status(200).send('Notification processed');
+//         return;
+//       }
+      
+
+//     // Step 6: Handle unrecognized message types
+//     console.warn('[STEP 6] Unrecognized message type:', messageType);
+//     res.status(400).send('Unhandled SNS Message Type');
+// });
+
+// // 
+

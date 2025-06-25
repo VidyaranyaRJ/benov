@@ -12,13 +12,13 @@ const LOG_GROUP = "node-app-logs";
 const client = new CloudWatchLogsClient({ region: REGION });
 
 let sequenceTokenCache = {};
-let initializedDate = "";
+let currentDate = "";
 
 function getTodayDateStr() {
-  return new Date().toISOString().split("T")[0];
+  return new Date().toISOString().split("T")[0]; // e.g. "2025-06-20"
 }
 
-async function ensureLogStream(logStreamName) {
+async function getOrCreateLogStream(logStreamName) {
   try {
     const describeRes = await client.send(
       new DescribeLogStreamsCommand({
@@ -40,55 +40,43 @@ async function ensureLogStream(logStreamName) {
 
     return null;
   } catch (err) {
-    console.error("ensureLogStream error:", err);
+    console.error("getOrCreateLogStream error:", err);
     throw err;
   }
-}
-
-async function sendToStream(logStreamName, message) {
-  if (!sequenceTokenCache[logStreamName]) {
-    sequenceTokenCache[logStreamName] = await ensureLogStream(logStreamName);
-  }
-
-  const command = new PutLogEventsCommand({
-    logGroupName: LOG_GROUP,
-    logStreamName,
-    logEvents: [
-      {
-        message: `[${new Date().toISOString()}] ${message}`,
-        timestamp: Date.now(),
-      },
-    ],
-    sequenceToken: sequenceTokenCache[logStreamName],
-  });
-
-  const res = await client.send(command);
-  sequenceTokenCache[logStreamName] = res.nextSequenceToken;
 }
 
 async function logToCloudWatch(message) {
   try {
     const today = getTodayDateStr();
     const hostname = os.hostname();
+    const logStreamName = `${today}/${hostname}/node-app.log`;
 
-    const streamNames = [
-      `${today}/${hostname}/node-app.log`,
-      `${today}/all_instance_logs/node-app.log`,
-    ];
-
-    // Create log group if new day or first run
-    if (initializedDate !== today) {
+    if (currentDate !== today || !sequenceTokenCache[today]) {
       try {
         await client.send(new CreateLogGroupCommand({ logGroupName: LOG_GROUP }));
       } catch (err) {
         if (err.name !== "ResourceAlreadyExistsException") throw err;
       }
-      initializedDate = today;
+
+      const token = await getOrCreateLogStream(logStreamName);
+      sequenceTokenCache[today] = token;
+      currentDate = today;
     }
 
-    for (const streamName of streamNames) {
-      await sendToStream(streamName, message);
-    }
+    const command = new PutLogEventsCommand({
+      logGroupName: LOG_GROUP,
+      logStreamName,
+      logEvents: [
+        {
+          message: `[${new Date().toISOString()}] ${message}`,
+          timestamp: Date.now(),
+        },
+      ],
+      sequenceToken: sequenceTokenCache[today],
+    });
+
+    const response = await client.send(command);
+    sequenceTokenCache[today] = response.nextSequenceToken;
   } catch (err) {
     console.error("CloudWatch logging failed:", err);
   }
