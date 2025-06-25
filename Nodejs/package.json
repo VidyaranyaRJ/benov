@@ -7,7 +7,7 @@
     "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["express", "monitoring", "cloudwatch", "time-server"],
+  "keywords": ["express", "monitoring", "cloudwatch", "time-server", "nodejs", "aws", "logging"],
   "author": "",
   "license": "ISC",
   "description": "Live time monitoring application with CloudWatch logging",
@@ -20,3 +20,4 @@
     "node": ">=18.0.0"
   }
 }
+

@@ -1,183 +1,180 @@
-const {
-  CloudWatchLogsClient,
-  CreateLogGroupCommand,
-  CreateLogStreamCommand,
-  PutLogEventsCommand,
-  DescribeLogStreamsCommand,
-} = require("@aws-sdk/client-cloudwatch-logs");
-const os = require("os");
+// cloudwatch-logger.js
+const { CloudWatchLogsClient, PutLogEventsCommand, CreateLogGroupCommand, CreateLogStreamCommand } = require('@aws-sdk/client-cloudwatch-logs');
+const os = require('os');
 
-const REGION = process.env.AWS_REGION || "us-east-2";
-const LOG_GROUP = "node-app-logs";
-const client = new CloudWatchLogsClient({ region: REGION });
-
-let sequenceTokenCache = {};
-let initializedDate = "";
-
-function getTodayDateStr() {
-  return new Date().toISOString().split("T")[0];
-}
-
-async function ensureLogStream(logStreamName) {
-  try {
-    console.log(`🔍 Checking if log stream exists: ${logStreamName}`);
+class CloudWatchLogger {
+  constructor() {
+    this.client = new CloudWatchLogsClient({ 
+      region: process.env.AWS_REGION || 'us-east-1' 
+    });
+    this.logGroupName = process.env.LOG_GROUP_NAME || 'node-app-logs';
+    this.hostname = process.env.CUSTOM_HOSTNAME || os.hostname();
+    this.logBuffer = [];
+    this.isBuffering = true;
+    this.bufferFlushInterval = 5000; // 5 seconds
+    this.maxBufferSize = 100;
     
-    const describeRes = await client.send(
-      new DescribeLogStreamsCommand({
-        logGroupName: LOG_GROUP,
-        logStreamNamePrefix: logStreamName,
-      })
-    );
+    // Start buffer flushing
+    this.startBufferFlush();
+    
+    // Ensure log group and streams exist
+    this.initializeLogging();
+  }
 
-    if (describeRes.logStreams && describeRes.logStreams.length > 0) {
-      const existingStream = describeRes.logStreams.find(s => s.logStreamName === logStreamName);
-      if (existingStream) {
-        console.log(`✅ Log stream exists: ${logStreamName}`);
-        return existingStream.uploadSequenceToken;
+  async initializeLogging() {
+    try {
+      // Create log group if it doesn't exist
+      await this.createLogGroupIfNotExists();
+      
+      // Create both consolidated and per-instance streams
+      const today = new Date().toISOString().split('T')[0];
+      await this.createLogStreamIfNotExists(`${today}/all_instance_logs/node-app.log`);
+      await this.createLogStreamIfNotExists(`${today}/${this.hostname}/node-app.log`);
+      
+      console.log(`✅ CloudWatch logging initialized for ${this.hostname}`);
+    } catch (error) {
+      console.error('❌ Failed to initialize CloudWatch logging:', error.message);
+    }
+  }
+
+  async createLogGroupIfNotExists() {
+    try {
+      await this.client.send(new CreateLogGroupCommand({
+        logGroupName: this.logGroupName
+      }));
+    } catch (error) {
+      if (error.name !== 'ResourceAlreadyExistsException') {
+        throw error;
       }
     }
-
-    console.log(`🆕 Creating new log stream: ${logStreamName}`);
-    await client.send(
-      new CreateLogStreamCommand({
-        logGroupName: LOG_GROUP,
-        logStreamName,
-      })
-    );
-    
-    console.log(`✅ Log stream created successfully: ${logStreamName}`);
-    return null;
-  } catch (err) {
-    console.error(`❌ ensureLogStream error for ${logStreamName}:`, err.message);
-    throw err;
   }
-}
 
-async function sendToStream(logStreamName, message) {
-  try {
-    if (!sequenceTokenCache[logStreamName]) {
-      console.log(`🔧 Initializing sequence token for: ${logStreamName}`);
-      sequenceTokenCache[logStreamName] = await ensureLogStream(logStreamName);
+  async createLogStreamIfNotExists(logStreamName) {
+    try {
+      await this.client.send(new CreateLogStreamCommand({
+        logGroupName: this.logGroupName,
+        logStreamName: logStreamName
+      }));
+    } catch (error) {
+      if (error.name !== 'ResourceAlreadyExistsException') {
+        throw error;
+      }
     }
+  }
 
-    const logEvent = {
-      message: `[${new Date().toISOString()}] ${message}`,
+  getLogStreamName(type = 'consolidated') {
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (type === 'consolidated') {
+      return `${today}/all_instance_logs/node-app.log`;
+    } else {
+      return `${today}/${this.hostname}/node-app.log`;
+    }
+  }
+
+  addToBuffer(level, message, metadata = {}) {
+    const logEntry = {
       timestamp: Date.now(),
+      message: JSON.stringify({
+        level,
+        message,
+        hostname: this.hostname,
+        timestamp: new Date().toISOString(),
+        ...metadata
+      })
     };
 
-    console.log(`📤 Sending log to stream: ${logStreamName}`);
-    console.log(`📝 Message: ${logEvent.message.substring(0, 100)}...`);
+    this.logBuffer.push(logEntry);
 
-    const command = new PutLogEventsCommand({
-      logGroupName: LOG_GROUP,
-      logStreamName,
-      logEvents: [logEvent],
-      sequenceToken: sequenceTokenCache[logStreamName],
-    });
+    // Flush if buffer is getting full
+    if (this.logBuffer.length >= this.maxBufferSize) {
+      this.flushBuffer();
+    }
+  }
 
-    const res = await client.send(command);
-    sequenceTokenCache[logStreamName] = res.nextSequenceToken;
-    
-    console.log(`✅ Log sent successfully to: ${logStreamName}`);
-  } catch (err) {
-    console.error(`❌ Failed to send log to ${logStreamName}:`, err.message);
-    
-    // If sequence token is invalid, reset and retry once
-    if (err.name === 'InvalidSequenceTokenException') {
-      console.log(`🔄 Resetting sequence token for ${logStreamName} and retrying...`);
-      delete sequenceTokenCache[logStreamName];
+  async flushBuffer() {
+    if (this.logBuffer.length === 0) return;
+
+    const logsToFlush = [...this.logBuffer];
+    this.logBuffer = [];
+
+    // Send to both consolidated and per-instance streams
+    await Promise.all([
+      this.sendToCloudWatch(logsToFlush, 'consolidated'),
+      this.sendToCloudWatch(logsToFlush, 'instance')
+    ]);
+  }
+
+  async sendToCloudWatch(logEvents, streamType, retries = 3) {
+    try {
+      const command = new PutLogEventsCommand({
+        logGroupName: this.logGroupName,
+        logStreamName: this.getLogStreamName(streamType),
+        logEvents: logEvents
+        // Note: No sequenceToken needed since January 2023 AWS update
+      });
+
+      await this.client.send(command);
+    } catch (error) {
+      console.error(`❌ Failed to send logs to ${streamType} stream:`, error.message);
       
-      try {
-        sequenceTokenCache[logStreamName] = await ensureLogStream(logStreamName);
-        const retryCommand = new PutLogEventsCommand({
-          logGroupName: LOG_GROUP,
-          logStreamName,
-          logEvents: [logEvent],
-          sequenceToken: sequenceTokenCache[logStreamName],
+      // Retry with exponential backoff
+      if (retries > 0) {
+        const delay = Math.pow(2, 3 - retries) * 1000;
+        setTimeout(() => {
+          this.sendToCloudWatch(logEvents, streamType, retries - 1);
+        }, delay);
+      }
+    }
+  }
+
+  startBufferFlush() {
+    setInterval(() => {
+      this.flushBuffer();
+    }, this.bufferFlushInterval);
+
+    // Flush on process exit
+    process.on('SIGTERM', () => this.flushBuffer());
+    process.on('SIGINT', () => this.flushBuffer());
+    process.on('exit', () => this.flushBuffer());
+  }
+
+  // Public logging methods
+  info(message, metadata = {}) {
+    this.addToBuffer('INFO', message, metadata);
+  }
+
+  error(message, metadata = {}) {
+    this.addToBuffer('ERROR', message, metadata);
+  }
+
+  warn(message, metadata = {}) {
+    this.addToBuffer('WARN', message, metadata);
+  }
+
+  debug(message, metadata = {}) {
+    this.addToBuffer('DEBUG', message, metadata);
+  }
+
+  // Express middleware
+  expressMiddleware() {
+    return (req, res, next) => {
+      res.on('finish', () => {
+        this.info(`${req.method} ${req.path}`, {
+          method: req.method,
+          path: req.path,
+          statusCode: res.statusCode,
+          ip: req.ip || req.connection.remoteAddress,
+          userAgent: req.get('User-Agent'),
+          responseTime: res.get('X-Response-Time')
         });
-        
-        const retryRes = await client.send(retryCommand);
-        sequenceTokenCache[logStreamName] = retryRes.nextSequenceToken;
-        console.log(`✅ Retry successful for: ${logStreamName}`);
-      } catch (retryErr) {
-        console.error(`❌ Retry failed for ${logStreamName}:`, retryErr.message);
-      }
-    }
+      });
+      next();
+    };
   }
 }
 
-async function logToCloudWatch(message) {
-  try {
-    const today = getTodayDateStr();
-    const hostname = os.hostname();
+// Create singleton instance
+const logger = new CloudWatchLogger();
 
-    console.log(`🚀 Starting CloudWatch logging process...`);
-    console.log(`📅 Date: ${today}`);
-    console.log(`🖥️ Hostname: ${hostname}`);
-    console.log(`🌍 Region: ${REGION}`);
-    console.log(`📦 Log Group: ${LOG_GROUP}`);
-
-    const streamNames = [
-      `${today}/${hostname}/node-app.log`,
-      `${today}/all_instance_logs/node-app.log`,
-    ];
-
-    console.log(`📋 Target streams:`, streamNames);
-
-    // Create log group if new day or first run
-    if (initializedDate !== today) {
-      console.log(`🆕 Ensuring log group exists: ${LOG_GROUP}`);
-      try {
-        await client.send(new CreateLogGroupCommand({ logGroupName: LOG_GROUP }));
-        console.log(`✅ Log group created: ${LOG_GROUP}`);
-      } catch (err) {
-        if (err.name === "ResourceAlreadyExistsException") {
-          console.log(`ℹ️ Log group already exists: ${LOG_GROUP}`);
-        } else {
-          console.error(`❌ Failed to create log group:`, err.message);
-          throw err;
-        }
-      }
-      initializedDate = today;
-    }
-
-    // Send to each stream
-    for (const streamName of streamNames) {
-      await sendToStream(streamName, message);
-    }
-    
-    console.log(`🎉 CloudWatch logging completed successfully!`);
-  } catch (err) {
-    console.error("❌ CloudWatch logging failed:", err);
-    console.error("Stack trace:", err.stack);
-  }
-}
-
-// Test function to verify CloudWatch connectivity
-async function testCloudWatchConnection() {
-  console.log("🧪 Testing CloudWatch connection...");
-  
-  try {
-    // Test if we can describe log groups
-    const { CloudWatchLogsClient, DescribeLogGroupsCommand } = require("@aws-sdk/client-cloudwatch-logs");
-    const testClient = new CloudWatchLogsClient({ region: REGION });
-    
-    const result = await testClient.send(new DescribeLogGroupsCommand({
-      logGroupNamePrefix: LOG_GROUP,
-      limit: 1
-    }));
-    
-    console.log("✅ CloudWatch connection successful");
-    console.log(`📊 Found ${result.logGroups ? result.logGroups.length : 0} matching log groups`);
-    
-    return true;
-  } catch (err) {
-    console.error("❌ CloudWatch connection failed:", err.message);
-    return false;
-  }
-}
-
-module.exports = { 
-  logToCloudWatch, 
-  testCloudWatchConnection 
-};
+module.exports = logger;

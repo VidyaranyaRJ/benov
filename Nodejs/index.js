@@ -9,10 +9,13 @@ const db = require('./db');
 const { faker }   = require('@faker-js/faker');
 const compression = require('compression');
 
-const { logToCloudWatch } = require('./cloudwatch-logger');
+
+const cloudwatchLogger = require('./cloudwatch-logger');
+
 
 const writeLog = require('./logger'); 
 const app = express();
+app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -33,7 +36,7 @@ app.use(compression({
 
 const requestLogger = require('./middleware/requestLogger');
 app.use(requestLogger);
-
+app.use(cloudwatchLogger.expressMiddleware());
 
 // Track page visits
 let visitCount = 0;
@@ -52,7 +55,7 @@ app.use((req, res, next) => {
   
   const logEntry = `[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`;
   writeLog(logEntry);
-  logToCloudWatch(logEntry); // non-blocking, async
+  cloudwatchLogger.info(logEntry); // non-blocking, async
   next();
 });
 
@@ -62,7 +65,7 @@ app.use((req, res, next) => {
 const HOSTNAME = os.hostname();
 
 
-logToCloudWatch(`🚀 Node.js app started on host ${HOSTNAME}`);
+cloudwatchLogger.info(`🚀 Node.js app started on host ${HOSTNAME}`);
 
 // Database
 
@@ -81,12 +84,17 @@ app.post('/insert-random-user', async (req, res) => {
     `;
     await db.query(insertQuery, [name, email, user_type]);
 
-    await logToCloudWatch(`[DB] Inserted user: ${name}, ${email}`);
+    await cloudwatchLogger.info(`[DB] Inserted user: ${name}, ${email}`);
 
     res.json({ success: true, name, email });
   } catch (err) {
     console.error('Error inserting random user:', err);
-    await logToCloudWatch(`[ERROR] Failed to insert user: ${err.message}`);
+    cloudwatchLogger.error('Failed to insert user', {
+      message: err.message,
+      stack: err.stack,
+      ip: clientIp
+    });
+
     res.status(500).json({ success: false, error: 'Failed to insert user' });
   }
 });
@@ -96,11 +104,15 @@ app.post('/insert-random-user', async (req, res) => {
 app.get('/users', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT * FROM users');
-    await logToCloudWatch(`[DB] Queried all users. Count: ${rows.length}`);
+    await cloudwatchLogger.info(`[DB] Queried all users. Count: ${rows.length}`);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching users:', err);
-    await logToCloudWatch(`[ERROR] Failed to fetch users: ${err.message}`);
+    cloudwatchLogger.error('Failed to fetch users', {
+      message: err.message,
+      stack: err.stack,
+      ip: clientIp
+    });
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
@@ -137,7 +149,7 @@ app.get('/', (req, res) => {
   const logMsg = `🏠 [HOME] Visit #${visitCount} - IP: ${clientIp} - Unique Visitors: ${uniqueVisitors.size}`;
   
   writeLog(`[PAGE_VIEW] ${logMsg}`);
-  logToCloudWatch(logMsg); // non-blocking log
+  cloudwatchLogger.info(logMsg); // non-blocking log
 
 
   res.send(`
@@ -422,7 +434,7 @@ app.get('/time', (req, res) => {
   if (seconds % 10 === 0) {
     const logMsg = `[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`;
     writeLog(logMsg);
-    logToCloudWatch(logMsg); // non-blocking
+    cloudwatchLogger.info(logMsg); // non-blocking
   }
 
   res.json({
@@ -446,7 +458,7 @@ app.post('/manual-refresh', async (req, res) => {
 
   const baseMsg = `[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`;
   writeLog(baseMsg);
-  logToCloudWatch(baseMsg);
+  cloudwatchLogger.info(baseMsg);
 
   try {
     const nameParts = faker.person.fullName().split(' ');
@@ -464,7 +476,7 @@ app.post('/manual-refresh', async (req, res) => {
 
     const dbLog = `[DB_INSERT] User inserted via manual refresh - Name: ${name}, Email: ${email}`;
     writeLog(dbLog);
-    logToCloudWatch(dbLog);
+    cloudwatchLogger.info(dbLog);
 
     res.json({ 
       status: 'refresh logged + user inserted', 
@@ -474,7 +486,7 @@ app.post('/manual-refresh', async (req, res) => {
   } catch (err) {
     const errMsg = `❌ DB_INSERT_FAILED during manual refresh - IP: ${clientIp} - Error: ${err.message}`;
     writeLog(errMsg);
-    logToCloudWatch(errMsg);
+    cloudwatchLogger.error(errMsg);
     
     res.status(500).json({ 
       success: false, 
@@ -497,7 +509,7 @@ app.post('/page-focus', (req, res) => {
   
   const focusMsg = `[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`;
   writeLog(focusMsg);
-  logToCloudWatch(focusMsg);
+  cloudwatchLogger.info(focusMsg);
 
   res.json({ status: 'focus logged', timestamp: new Date().toISOString() });
 });
@@ -520,7 +532,7 @@ app.get('/logs', (req, res) => {
 
   const msg = `[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`;
   writeLog(msg);
-  logToCloudWatch(msg);
+  cloudwatchLogger.info(msg);
 
   // Get current log file path
   const now = new Date();
@@ -534,7 +546,7 @@ app.get('/logs', (req, res) => {
     if (err) {
       const errMsg = `[ERROR] LOG_READ_ERROR - ${err.message}`;
       writeLog(errMsg);
-      logToCloudWatch(errMsg);
+      cloudwatchLogger.error(errMsg);
       return res.status(500).send('Error reading logs');
     }
 
@@ -698,7 +710,7 @@ app.post('/clear-logs', (req, res) => {
                    'unknown';
   
   writeLog(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
-  logToCloudWatch(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
+  cloudwatchLogger.info(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
   
   // Get current log file path (same as logger.js)
   const now = new Date();
@@ -716,7 +728,7 @@ app.post('/clear-logs', (req, res) => {
     }
     
     writeLog(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
-    logToCloudWatch(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
+    cloudwatchLogger.info(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
 
 
     res.json({ status: 'logs cleared', timestamp: new Date().toISOString() });
@@ -727,7 +739,7 @@ app.post('/clear-logs', (req, res) => {
 
 // Enhanced health check
 app.get('/health', (req, res) => {
-  logToCloudWatch(`💓 [HEALTH] Check from ${req.ip}`);
+  cloudwatchLogger.info(`💓 [HEALTH] Check from ${req.ip}`);
 
   const uptime = process.uptime();
   const memUsage = process.memoryUsage();
@@ -964,7 +976,7 @@ app.get('/health', (req, res) => {
 app.get('/compression-test', (req, res) => {
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   writeLog(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
-  logToCloudWatch(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
+  cloudwatchLogger.info(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
 
   res.setHeader('Content-Type', 'text/plain');
   res.send('This is a compression test string that should be long enough to trigger compression if GZIP is enabled.');
@@ -974,7 +986,7 @@ app.get('/compression-test', (req, res) => {
 app.get('/insert-ui', (req, res) => {
   const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
   writeLog(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
-  logToCloudWatch(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
+  cloudwatchLogger.info(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
 
   res.send(`
     <!DOCTYPE html>
@@ -1010,7 +1022,7 @@ app.use((err, req, res, next) => {
                    'unknown';
   
   writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
-  logToCloudWatch(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);  
+  cloudwatchLogger.error(`${err.message} - IP: ${clientIp}`, { stack: err.stack });
 
 
   res.status(500).json({ 
