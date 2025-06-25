@@ -14,7 +14,10 @@ const { logToCloudWatch } = require('./cloudwatch-logger');
 const writeLog = require('./logger'); 
 const app = express();
 
-
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`);
+});
 
 app.use(compression({
   level: 6, // Compression level (1–9), 6 is a good balance between speed and compression
@@ -1018,7 +1021,3 @@ app.use((err, req, res, next) => {
 
 
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`);
-});
