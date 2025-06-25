@@ -334,6 +334,7 @@ app.get('/', (req, res) => {
         });
 
 
+
       </script>
     </body>
     </html>
@@ -373,17 +374,61 @@ app.get('/time', (req, res) => {
 });
 
 // Manual refresh endpoint
-app.post('/manual-refresh', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
+// app.post('/manual-refresh', (req, res) => {
+//   const clientIp = req.headers['x-forwarded-for'] || 
+//                    req.headers['x-real-ip'] || 
+//                    req.connection.remoteAddress || 
+//                    req.socket.remoteAddress || 
+//                    'unknown';
+  
+//   writeLog(`[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`);
+  
+//   res.json({ status: 'refresh logged', timestamp: new Date().toISOString() });
+// });
+
+
+
+
+app.post('/manual-refresh', async (req, res) => {
+  const clientIp = req.headers['x-forwarded-for'] ||
+                   req.headers['x-real-ip'] ||
+                   req.connection.remoteAddress ||
+                   req.socket.remoteAddress ||
                    'unknown';
-  
+
   writeLog(`[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`);
-  
-  res.json({ status: 'refresh logged', timestamp: new Date().toISOString() });
+
+  // Insert a random user on manual refresh
+  try {
+    const nameParts = faker.person.fullName().split(' ');
+    const firstName = nameParts[0];
+    const lastName = nameParts[1] || '';
+    const name = `${firstName} ${lastName}`;
+    const email = faker.internet.email({ firstName, lastName });
+    const user_type = 'RefreshUser';
+
+    const insertQuery = `
+      INSERT INTO users (name, email, user_type)
+      VALUES (?, ?, ?)
+    `;
+    await promiseDB.query(insertQuery, [name, email, user_type]);
+
+    res.json({ 
+      status: 'refresh logged + user inserted', 
+      user: { name, email }, 
+      timestamp: new Date().toISOString() 
+    });
+  } catch (err) {
+    console.error('Error during manual refresh user insert:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Refresh logged but failed to insert user',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
+
+
 
 // Page focus endpoint
 app.post('/page-focus', (req, res) => {
