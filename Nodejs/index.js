@@ -278,18 +278,43 @@ app.get('/', (req, res) => {
           }
         }
         
+        // async function manualRefresh() {
+        //   refreshCount++;
+        //   try {
+        //     await fetch('/manual-refresh', { method: 'POST' });
+        //     showLogIndicator('🔄 Manual refresh logged!');
+        //   } catch (error) {
+        //     console.error('Manual refresh error:', error);
+        //     showLogIndicator('❌ Refresh failed!', 3000);
+        //   }
+        //   await updateTime();
+        // }
         async function manualRefresh() {
           refreshCount++;
           try {
-            await fetch('/manual-refresh', { method: 'POST' });
+            const resp = await fetch('/manual-refresh', { method: 'POST' });
+            const data = await resp.json();
             showLogIndicator('🔄 Manual refresh logged!');
+
+            // Show inserted user (optional)
+            console.log('Inserted:', data.user);
+
+            // Fetch and show updated users
+            const usersResp = await fetch('/users');
+            const usersData = await usersResp.json();
+            console.log('Users:', usersData);
+            
+            // You can also show it in the DOM if desired
+            // For example:
+            // document.getElementById('output').textContent = JSON.stringify(usersData, null, 2);
           } catch (error) {
             console.error('Manual refresh error:', error);
             showLogIndicator('❌ Refresh failed!', 3000);
           }
           await updateTime();
         }
-        
+
+
         function viewLogs() {
           window.open('/logs', '_blank');
         }
