@@ -1,5 +1,5 @@
 // cloudwatch-logger.js
-const { CloudWatchLogsClient, PutLogEventsCommand, CreateLogGroupCommand, CreateLogStreamCommand } = require('@aws-sdk/client-cloudwatch-logs');
+const { CloudWatchLogsClient, PutLogEventsCommand, CreateLogGroupCommand, CreateLogStreamCommand, DescribeLogStreamsCommand } = require('@aws-sdk/client-cloudwatch-logs');
 const os = require('os');
 
 class CloudWatchLogger {
@@ -10,9 +10,11 @@ class CloudWatchLogger {
     this.logGroupName = process.env.LOG_GROUP_NAME || 'node-app-logs';
     this.hostname = process.env.CUSTOM_HOSTNAME || os.hostname();
     this.logBuffer = [];
+    this.consolidatedBuffer = []; // Separate buffer for consolidated logs
     this.isBuffering = true;
     this.bufferFlushInterval = 5000; // 5 seconds
     this.maxBufferSize = 100;
+    this.sequenceTokens = {}; // Track sequence tokens per stream
     
     // Start buffer flushing
     this.startBufferFlush();
@@ -72,6 +74,24 @@ class CloudWatchLogger {
     }
   }
 
+  // Get the latest sequence token for a stream
+  async getSequenceToken(logStreamName) {
+    try {
+      const command = new DescribeLogStreamsCommand({
+        logGroupName: this.logGroupName,
+        logStreamNamePrefix: logStreamName,
+        limit: 1
+      });
+      
+      const response = await this.client.send(command);
+      const stream = response.logStreams?.[0];
+      return stream?.uploadSequenceToken || null;
+    } catch (error) {
+      console.error(`Failed to get sequence token for ${logStreamName}:`, error.message);
+      return null;
+    }
+  }
+
   addToBuffer(level, message, metadata = {}) {
     const logEntry = {
       timestamp: Date.now(),
@@ -84,7 +104,9 @@ class CloudWatchLogger {
       })
     };
 
+    // Add to both buffers
     this.logBuffer.push(logEntry);
+    this.consolidatedBuffer.push(logEntry);
 
     // Flush if buffer is getting full
     if (this.logBuffer.length >= this.maxBufferSize) {
@@ -93,28 +115,45 @@ class CloudWatchLogger {
   }
 
   async flushBuffer() {
-    if (this.logBuffer.length === 0) return;
+    if (this.logBuffer.length === 0 && this.consolidatedBuffer.length === 0) return;
 
-    const logsToFlush = [...this.logBuffer];
+    const instanceLogsToFlush = [...this.logBuffer];
+    const consolidatedLogsToFlush = [...this.consolidatedBuffer];
+    
     this.logBuffer = [];
+    this.consolidatedBuffer = [];
 
-    // Send to both consolidated and per-instance streams
-    await Promise.all([
-      this.sendToCloudWatch(logsToFlush, 'consolidated'),
-      this.sendToCloudWatch(logsToFlush, 'instance')
-    ]);
+    // Send to both streams with proper error handling
+    const promises = [];
+    
+    if (instanceLogsToFlush.length > 0) {
+      promises.push(this.sendToCloudWatch(instanceLogsToFlush, 'instance'));
+    }
+    
+    if (consolidatedLogsToFlush.length > 0) {
+      promises.push(this.sendToCloudWatchWithRetry(consolidatedLogsToFlush, 'consolidated'));
+    }
+
+    await Promise.allSettled(promises);
   }
 
   async sendToCloudWatch(logEvents, streamType, retries = 3) {
     try {
+      const logStreamName = this.getLogStreamName(streamType);
+      
       const command = new PutLogEventsCommand({
         logGroupName: this.logGroupName,
-        logStreamName: this.getLogStreamName(streamType),
+        logStreamName: logStreamName,
         logEvents: logEvents
-        // Note: No sequenceToken needed since January 2023 AWS update
       });
 
-      await this.client.send(command);
+      const response = await this.client.send(command);
+      
+      // Store the next sequence token if provided
+      if (response.nextSequenceToken) {
+        this.sequenceTokens[logStreamName] = response.nextSequenceToken;
+      }
+      
     } catch (error) {
       console.error(`❌ Failed to send logs to ${streamType} stream:`, error.message);
       
@@ -126,6 +165,65 @@ class CloudWatchLogger {
         }, delay);
       }
     }
+  }
+
+  // Special method for consolidated logs with better conflict handling
+  async sendToCloudWatchWithRetry(logEvents, streamType, maxRetries = 5) {
+    let retries = 0;
+    
+    while (retries <= maxRetries) {
+      try {
+        const logStreamName = this.getLogStreamName(streamType);
+        
+        const command = new PutLogEventsCommand({
+          logGroupName: this.logGroupName,
+          logStreamName: logStreamName,
+          logEvents: logEvents,
+          sequenceToken: this.sequenceTokens[logStreamName]
+        });
+
+        const response = await this.client.send(command);
+        
+        // Update sequence token on success
+        if (response.nextSequenceToken) {
+          this.sequenceTokens[logStreamName] = response.nextSequenceToken;
+        }
+        
+        return; // Success, exit retry loop
+        
+      } catch (error) {
+        retries++;
+        
+        // Handle specific errors
+        if (error.name === 'InvalidSequenceTokenException' && retries <= maxRetries) {
+          // Get fresh sequence token and retry
+          this.sequenceTokens[this.getLogStreamName(streamType)] = await this.getSequenceToken(this.getLogStreamName(streamType));
+          const backoffTime = Math.min(1000 * Math.pow(2, retries), 10000) + Math.random() * 1000;
+          await this.sleep(backoffTime);
+          continue;
+        }
+        
+        if (error.name === 'DataAlreadyAcceptedException') {
+          // Data was already accepted, consider it success
+          console.log(`Data already accepted for ${streamType} stream`);
+          return;
+        }
+        
+        if (retries <= maxRetries) {
+          // General retry with jittered exponential backoff
+          const backoffTime = Math.min(1000 * Math.pow(2, retries), 10000) + Math.random() * 1000;
+          console.log(`Retrying consolidated log send in ${backoffTime}ms (attempt ${retries}/${maxRetries})`);
+          await this.sleep(backoffTime);
+        } else {
+          console.error(`❌ Failed to send consolidated logs after ${maxRetries} retries:`, error.message);
+          break;
+        }
+      }
+    }
+  }
+
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   startBufferFlush() {
