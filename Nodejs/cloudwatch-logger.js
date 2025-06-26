@@ -9,18 +9,23 @@ class CloudWatchLogger {
     });
     this.logGroupName = process.env.LOG_GROUP_NAME || 'node-app-logs';
     this.hostname = process.env.CUSTOM_HOSTNAME || os.hostname();
-    this.logBuffer = [];
-    this.consolidatedBuffer = []; // Separate buffer for consolidated logs
-    this.isBuffering = true;
-    this.bufferFlushInterval = 5000; // 5 seconds
-    this.maxBufferSize = 100;
-    this.sequenceTokens = {}; // Track sequence tokens per stream
     
-    // Start buffer flushing
-    this.startBufferFlush();
+    // Separate buffers for different log streams
+    this.instanceBuffer = [];
+    this.consolidatedBuffer = [];
     
-    // Ensure log group and streams exist
-    this.initializeLogging();
+    this.isInitialized = false;
+    this.bufferFlushInterval = 3000; // 3 seconds
+    this.maxBufferSize = 50;
+    this.sequenceTokens = new Map(); // Track sequence tokens per stream
+    
+    // Initialize logging and start buffer flushing
+    this.initializeLogging().then(() => {
+      this.startBufferFlush();
+      console.log(`✅ CloudWatch logging initialized for ${this.hostname}`);
+    }).catch(error => {
+      console.error('❌ Failed to initialize CloudWatch logging:', error.message);
+    });
   }
 
   async initializeLogging() {
@@ -30,12 +35,17 @@ class CloudWatchLogger {
       
       // Create both consolidated and per-instance streams
       const today = new Date().toISOString().split('T')[0];
-      await this.createLogStreamIfNotExists(`${today}/all_instance_logs/node-app.log`);
-      await this.createLogStreamIfNotExists(`${today}/${this.hostname}/node-app.log`);
+      await this.createLogStreamIfNotExists(`${today}/all-instances/consolidated.log`);
+      await this.createLogStreamIfNotExists(`${today}/${this.hostname}/instance.log`);
       
-      console.log(`✅ CloudWatch logging initialized for ${this.hostname}`);
+      this.isInitialized = true;
+      
+      // Send initialization message
+      this.info(`🚀 CloudWatch Logger initialized for ${this.hostname}`);
+      
     } catch (error) {
-      console.error('❌ Failed to initialize CloudWatch logging:', error.message);
+      console.error('Failed to initialize CloudWatch logging:', error.message);
+      throw error;
     }
   }
 
@@ -68,9 +78,9 @@ class CloudWatchLogger {
     const today = new Date().toISOString().split('T')[0];
     
     if (type === 'consolidated') {
-      return `${today}/all_instance_logs/node-app.log`;
+      return `${today}/all-instances/consolidated.log`;
     } else {
-      return `${today}/${this.hostname}/node-app.log`;
+      return `${today}/${this.hostname}/instance.log`;
     }
   }
 
@@ -92,38 +102,54 @@ class CloudWatchLogger {
     }
   }
 
+  formatLogMessage(level, message, metadata = {}) {
+    return {
+      timestamp: new Date().toISOString(),
+      level,
+      message,
+      hostname: this.hostname,
+      pid: process.pid,
+      ...metadata
+    };
+  }
+
   addToBuffer(level, message, metadata = {}) {
+    if (!this.isInitialized) {
+      // Queue logs until initialized
+      setTimeout(() => this.addToBuffer(level, message, metadata), 100);
+      return;
+    }
+
+    const logData = this.formatLogMessage(level, message, metadata);
     const logEntry = {
       timestamp: Date.now(),
-      message: JSON.stringify({
-        level,
-        message,
-        hostname: this.hostname,
-        timestamp: new Date().toISOString(),
-        ...metadata
-      })
+      message: JSON.stringify(logData)
     };
 
     // Add to both buffers
-    this.logBuffer.push(logEntry);
+    this.instanceBuffer.push(logEntry);
     this.consolidatedBuffer.push(logEntry);
 
     // Flush if buffer is getting full
-    if (this.logBuffer.length >= this.maxBufferSize) {
+    if (this.instanceBuffer.length >= this.maxBufferSize || 
+        this.consolidatedBuffer.length >= this.maxBufferSize) {
       this.flushBuffer();
     }
   }
 
   async flushBuffer() {
-    if (this.logBuffer.length === 0 && this.consolidatedBuffer.length === 0) return;
+    if (this.instanceBuffer.length === 0 && this.consolidatedBuffer.length === 0) {
+      return;
+    }
 
-    const instanceLogsToFlush = [...this.logBuffer];
+    // Create copies and clear buffers
+    const instanceLogsToFlush = [...this.instanceBuffer];
     const consolidatedLogsToFlush = [...this.consolidatedBuffer];
     
-    this.logBuffer = [];
+    this.instanceBuffer = [];
     this.consolidatedBuffer = [];
 
-    // Send to both streams with proper error handling
+    // Send logs to both streams concurrently
     const promises = [];
     
     if (instanceLogsToFlush.length > 0) {
@@ -131,62 +157,39 @@ class CloudWatchLogger {
     }
     
     if (consolidatedLogsToFlush.length > 0) {
-      promises.push(this.sendToCloudWatchWithRetry(consolidatedLogsToFlush, 'consolidated'));
+      promises.push(this.sendToCloudWatch(consolidatedLogsToFlush, 'consolidated'));
     }
 
-    await Promise.allSettled(promises);
+    // Wait for all sends to complete
+    const results = await Promise.allSettled(promises);
+    
+    // Log any failures
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const streamType = index === 0 ? 'instance' : 'consolidated';
+        console.error(`Failed to send logs to ${streamType} stream:`, result.reason);
+      }
+    });
   }
 
-  async sendToCloudWatch(logEvents, streamType, retries = 3) {
-    try {
-      const logStreamName = this.getLogStreamName(streamType);
-      
-      const command = new PutLogEventsCommand({
-        logGroupName: this.logGroupName,
-        logStreamName: logStreamName,
-        logEvents: logEvents
-      });
-
-      const response = await this.client.send(command);
-      
-      // Store the next sequence token if provided
-      if (response.nextSequenceToken) {
-        this.sequenceTokens[logStreamName] = response.nextSequenceToken;
-      }
-      
-    } catch (error) {
-      console.error(`❌ Failed to send logs to ${streamType} stream:`, error.message);
-      
-      // Retry with exponential backoff
-      if (retries > 0) {
-        const delay = Math.pow(2, 3 - retries) * 1000;
-        setTimeout(() => {
-          this.sendToCloudWatch(logEvents, streamType, retries - 1);
-        }, delay);
-      }
-    }
-  }
-
-  // Special method for consolidated logs with better conflict handling
-  async sendToCloudWatchWithRetry(logEvents, streamType, maxRetries = 5) {
+  async sendToCloudWatch(logEvents, streamType, maxRetries = 3) {
+    const logStreamName = this.getLogStreamName(streamType);
     let retries = 0;
     
     while (retries <= maxRetries) {
       try {
-        const logStreamName = this.getLogStreamName(streamType);
-        
         const command = new PutLogEventsCommand({
           logGroupName: this.logGroupName,
           logStreamName: logStreamName,
-          logEvents: logEvents,
-          sequenceToken: this.sequenceTokens[logStreamName]
+          logEvents: logEvents.sort((a, b) => a.timestamp - b.timestamp), // Ensure chronological order
+          sequenceToken: this.sequenceTokens.get(logStreamName)
         });
 
         const response = await this.client.send(command);
         
         // Update sequence token on success
         if (response.nextSequenceToken) {
-          this.sequenceTokens[logStreamName] = response.nextSequenceToken;
+          this.sequenceTokens.set(logStreamName, response.nextSequenceToken);
         }
         
         return; // Success, exit retry loop
@@ -194,29 +197,40 @@ class CloudWatchLogger {
       } catch (error) {
         retries++;
         
-        // Handle specific errors
-        if (error.name === 'InvalidSequenceTokenException' && retries <= maxRetries) {
+        if (error.name === 'InvalidSequenceTokenException') {
           // Get fresh sequence token and retry
-          this.sequenceTokens[this.getLogStreamName(streamType)] = await this.getSequenceToken(this.getLogStreamName(streamType));
-          const backoffTime = Math.min(1000 * Math.pow(2, retries), 10000) + Math.random() * 1000;
-          await this.sleep(backoffTime);
-          continue;
+          const freshToken = await this.getSequenceToken(logStreamName);
+          this.sequenceTokens.set(logStreamName, freshToken);
+          
+          if (retries <= maxRetries) {
+            const backoffTime = Math.min(1000 * Math.pow(2, retries), 5000) + Math.random() * 500;
+            await this.sleep(backoffTime);
+            continue;
+          }
         }
         
         if (error.name === 'DataAlreadyAcceptedException') {
           // Data was already accepted, consider it success
-          console.log(`Data already accepted for ${streamType} stream`);
           return;
+        }
+        
+        if (error.name === 'ResourceNotFoundException') {
+          // Stream doesn't exist, recreate it
+          await this.createLogStreamIfNotExists(logStreamName);
+          this.sequenceTokens.delete(logStreamName);
+          
+          if (retries <= maxRetries) {
+            continue;
+          }
         }
         
         if (retries <= maxRetries) {
           // General retry with jittered exponential backoff
-          const backoffTime = Math.min(1000 * Math.pow(2, retries), 10000) + Math.random() * 1000;
-          console.log(`Retrying consolidated log send in ${backoffTime}ms (attempt ${retries}/${maxRetries})`);
+          const backoffTime = Math.min(1000 * Math.pow(2, retries), 5000) + Math.random() * 500;
           await this.sleep(backoffTime);
         } else {
-          console.error(`❌ Failed to send consolidated logs after ${maxRetries} retries:`, error.message);
-          break;
+          console.error(`❌ Failed to send ${streamType} logs after ${maxRetries} retries:`, error.message);
+          throw error;
         }
       }
     }
@@ -227,48 +241,73 @@ class CloudWatchLogger {
   }
 
   startBufferFlush() {
-    setInterval(() => {
-      this.flushBuffer();
+    // Regular buffer flush
+    this.flushInterval = setInterval(() => {
+      this.flushBuffer().catch(console.error);
     }, this.bufferFlushInterval);
 
     // Flush on process exit
-    process.on('SIGTERM', () => this.flushBuffer());
-    process.on('SIGINT', () => this.flushBuffer());
-    process.on('exit', () => this.flushBuffer());
+    const cleanup = () => {
+      if (this.flushInterval) {
+        clearInterval(this.flushInterval);
+      }
+      this.flushBuffer().catch(console.error);
+    };
+
+    process.on('SIGTERM', cleanup);
+    process.on('SIGINT', cleanup);
+    process.on('exit', cleanup);
+    process.on('beforeExit', cleanup);
   }
 
   // Public logging methods
   info(message, metadata = {}) {
     this.addToBuffer('INFO', message, metadata);
+    console.log(`[INFO] ${message}`); // Also log to console
   }
 
   error(message, metadata = {}) {
     this.addToBuffer('ERROR', message, metadata);
+    console.error(`[ERROR] ${message}`); // Also log to console
   }
 
   warn(message, metadata = {}) {
     this.addToBuffer('WARN', message, metadata);
+    console.warn(`[WARN] ${message}`); // Also log to console
   }
 
   debug(message, metadata = {}) {
     this.addToBuffer('DEBUG', message, metadata);
+    console.log(`[DEBUG] ${message}`); // Also log to console
   }
 
   // Express middleware
   expressMiddleware() {
     return (req, res, next) => {
+      const start = Date.now();
+      
       res.on('finish', () => {
-        this.info(`${req.method} ${req.path}`, {
+        const duration = Date.now() - start;
+        const logMessage = `${req.method} ${req.originalUrl} - ${res.statusCode} - ${duration}ms`;
+        
+        this.info(logMessage, {
           method: req.method,
-          path: req.path,
+          url: req.originalUrl,
           statusCode: res.statusCode,
-          ip: req.ip || req.connection.remoteAddress,
+          responseTime: duration,
+          ip: req.ip || req.connection?.remoteAddress || 'unknown',
           userAgent: req.get('User-Agent'),
-          responseTime: res.get('X-Response-Time')
+          referer: req.get('Referer')
         });
       });
+      
       next();
     };
+  }
+
+  // Force flush method for critical logs
+  async forceFlush() {
+    return this.flushBuffer();
   }
 }
 

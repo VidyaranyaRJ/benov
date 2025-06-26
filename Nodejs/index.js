@@ -60,8 +60,13 @@ app.use((req, res, next) => {
   const url = req.url;
   
   const logEntry = `[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`;
-  writeLog(logEntry);
-  cloudwatchLogger.info(logEntry); // non-blocking, async
+  cloudwatchLogger.info(logEntry, {
+    method,
+    url,
+    clientIp,
+    userAgent
+  });
+  
   next();
 });
 
@@ -153,8 +158,12 @@ app.get('/', (req, res) => {
 
   const logMsg = `🏠 [HOME] Visit #${visitCount} - IP: ${clientIp} - Unique Visitors: ${uniqueVisitors.size}`;
   
-  writeLog(`[PAGE_VIEW] ${logMsg}`);
-  cloudwatchLogger.info(logMsg); // non-blocking log
+  cloudwatchLogger.info(logMsg, {
+    visitCount,
+    uniqueVisitors: uniqueVisitors.size,
+    clientIp,
+    page: 'home'
+  });
 
 
   res.send(`
@@ -433,8 +442,11 @@ app.get('/time', (req, res) => {
 
   if (seconds % 10 === 0) {
     const logMsg = `[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`;
-    writeLog(logMsg);
-    cloudwatchLogger.info(logMsg); // non-blocking
+    cloudwatchLogger.info(logMsg, {
+      timeString,
+      clientIp,
+      endpoint: 'time'
+    });
   }
 
   res.json({
@@ -453,8 +465,10 @@ app.post('/manual-refresh', async (req, res) => {
   const clientIp = getClientIp(req);
 
   const baseMsg = `[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`;
-  writeLog(baseMsg);
-  cloudwatchLogger.info(baseMsg);
+  cloudwatchLogger.info(baseMsg, {
+    action: 'manual_refresh',
+    clientIp
+  });
 
   try {
     const nameParts = faker.person.fullName().split(' ');
@@ -471,8 +485,13 @@ app.post('/manual-refresh', async (req, res) => {
     await db.query(insertQuery, [name, email, user_type]);
 
     const dbLog = `[DB_INSERT] User inserted via manual refresh - Name: ${name}, Email: ${email}`;
-    writeLog(dbLog);
-    cloudwatchLogger.info(dbLog);
+    cloudwatchLogger.info(dbLog, {
+      operation: 'db_insert',
+      user_name: name,
+      user_email: email,
+      user_type,
+      trigger: 'manual_refresh'
+    });
 
     res.json({ 
       status: 'refresh logged + user inserted', 
@@ -481,8 +500,12 @@ app.post('/manual-refresh', async (req, res) => {
     });
   } catch (err) {
     const errMsg = `❌ DB_INSERT_FAILED during manual refresh - IP: ${clientIp} - Error: ${err.message}`;
-    writeLog(errMsg);
-    cloudwatchLogger.error(errMsg);
+    cloudwatchLogger.error(errMsg, {
+      operation: 'db_insert_failed',
+      clientIp,
+      error: err.message,
+      stack: err.stack
+    });
     
     res.status(500).json({ 
       success: false, 
@@ -1003,8 +1026,13 @@ app.use((req, res, next) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
   const clientIp = getClientIp(req);
-  writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
-  cloudwatchLogger.error(`${err.message} - IP: ${clientIp}`, { stack: err.stack });
+  cloudwatchLogger.error(`Application error: ${err.message}`, {
+    clientIp,
+    error: err.message,
+    stack: err.stack,
+    url: req.originalUrl,
+    method: req.method
+  });
 
   res.status(500).json({ 
     error: 'Something went wrong!', 
@@ -1012,6 +1040,14 @@ app.use((err, req, res, next) => {
   });
 });
 
+setInterval(() => {
+  cloudwatchLogger.info('Health check - Application running', {
+    uptime: process.uptime(),
+    memoryUsage: process.memoryUsage(),
+    visitCount,
+    uniqueVisitors: uniqueVisitors.size
+  });
+}, 300000); // Every 5 minutes
 
 app.use((req, res) => {
   const clientIp = getClientIp(req);

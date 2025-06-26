@@ -54,3 +54,57 @@ runDebugTests().catch(err => {
   console.error("❌ Debug test failed:", err);
   process.exit(1);
 });
+
+// test-logging.js - Add this to your project root and run it to test logging
+const cloudwatchLogger = require('./cloudwatch-logger');
+
+async function testLogging() {
+  console.log('🧪 Starting CloudWatch logging test...');
+  
+  // Wait for initialization
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  
+  // Test different log levels
+  cloudwatchLogger.info('Test log from multiple instances - INFO level', {
+    testType: 'multi-instance',
+    logLevel: 'info',
+    instanceId: process.env.HOSTNAME || 'test-instance'
+  });
+  
+  cloudwatchLogger.warn('Test log from multiple instances - WARN level', {
+    testType: 'multi-instance',
+    logLevel: 'warn',
+    instanceId: process.env.HOSTNAME || 'test-instance'
+  });
+  
+  cloudwatchLogger.error('Test log from multiple instances - ERROR level', {
+    testType: 'multi-instance',
+    logLevel: 'error',
+    instanceId: process.env.HOSTNAME || 'test-instance'
+  });
+  
+  // Simulate application events
+  cloudwatchLogger.info('Simulated user login', {
+    event: 'user_login',
+    userId: 'test-user-123',
+    ip: '192.168.1.100'
+  });
+  
+  cloudwatchLogger.info('Simulated database query', {
+    event: 'db_query',
+    query: 'SELECT * FROM users',
+    duration: 45
+  });
+  
+  // Force flush to ensure logs are sent
+  await cloudwatchLogger.forceFlush();
+  
+  console.log('✅ Test logs sent to CloudWatch');
+  console.log('Check your CloudWatch console - you should see logs in:');
+  console.log(`- Instance stream: ${new Date().toISOString().split('T')[0]}/${process.env.HOSTNAME || 'test-instance'}/instance.log`);
+  console.log(`- Consolidated stream: ${new Date().toISOString().split('T')[0]}/all-instances/consolidated.log`);
+  
+  process.exit(0);
+}
+
+testLogging().catch(console.error);

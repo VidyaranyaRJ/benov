@@ -1,7 +1,11 @@
-require('dotenv').config();      // if you’re using a .env file
+require('dotenv').config(); // if you’re using a .env file
 const mysql = require('mysql2/promise');
-
 const { logToCloudWatch } = require('./cloudwatch-logger'); 
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL, // or your DB params
+});
 
 const promiseDB = mysql.createPool({
   host:     process.env.DB_HOST,
@@ -18,7 +22,7 @@ async function queryWithLogging(sql, params = []) {
   const timestamp = new Date().toISOString();
 
   try {
-    const [rows] = await pool.query(sql, params);
+    const [rows] = await promiseDB.query(sql, params);
     await logToCloudWatch(`[DB QUERY SUCCESS] ${timestamp}\n${formattedQuery}`);
     return rows;
   } catch (err) {
@@ -28,6 +32,8 @@ async function queryWithLogging(sql, params = []) {
 }
 
 module.exports = {
-  query: queryWithLogging,
-  pool, // Export pool in case you need raw connection access
+  pgQuery: (text, params) => pool.query(text, params), // for Postgres
+  mysqlQuery: queryWithLogging,                        // for MySQL
+  pgPool: pool,                                         // optional direct access
+  mysqlPool: promiseDB                                  // optional direct access
 };
