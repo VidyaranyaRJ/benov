@@ -42,13 +42,19 @@ app.use(cloudwatchLogger.expressMiddleware());
 let visitCount = 0;
 let uniqueVisitors = new Set();
 
+
+function getClientIp(req) {
+  return req.headers['x-forwarded-for'] || 
+         req.headers['x-real-ip'] || 
+         req.connection.remoteAddress || 
+         req.socket.remoteAddress || 
+         'unknown';
+}
+
+
 // Middleware to log all requests
 app.use((req, res, next) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
   const userAgent = req.headers['user-agent'] || 'Unknown';
   const method = req.method;
   const url = req.url;
@@ -69,7 +75,9 @@ cloudwatchLogger.info(`🚀 Node.js app started on host ${HOSTNAME}`);
 
 // Database
 
+
 app.post('/insert-random-user', async (req, res) => {
+  const clientIp = getClientIp(req);
   try {
     const nameParts = faker.person.fullName().split(' ');
     const firstName = nameParts[0];
@@ -86,7 +94,7 @@ app.post('/insert-random-user', async (req, res) => {
 
     await cloudwatchLogger.info(`[DB] Inserted user: ${name}, ${email}`);
 
-    res.json({ success: true, name, email });
+    res.status(200).json({ success: true, name, email });
   } catch (err) {
     console.error('Error inserting random user:', err);
     cloudwatchLogger.error('Failed to insert user', {
@@ -102,6 +110,7 @@ app.post('/insert-random-user', async (req, res) => {
 
 // (Optional) A GET to verify you can read back users
 app.get('/users', async (req, res) => {
+  const clientIp = getClientIp(req);
   try {
     const [rows] = await db.query('SELECT * FROM users');
     await cloudwatchLogger.info(`[DB] Queried all users. Count: ${rows.length}`);
@@ -137,11 +146,7 @@ app.get('/users', async (req, res) => {
 
 // Serve the static HTML page
 app.get('/', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
 
   visitCount++;
   uniqueVisitors.add(clientIp);
@@ -381,8 +386,7 @@ app.get('/', (req, res) => {
           setInterval(updateTime, 1000);
         });
         
-        // Update every second
-        setInterval(updateTime, 1000);
+        
         
         // Log page visibility changes
         document.addEventListener('visibilitychange', () => {
@@ -418,11 +422,7 @@ app.get('/', (req, res) => {
 app.get('/time', (req, res) => {
   const now = new Date();
   const seconds = now.getSeconds();
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
 
   const hours = now.getHours().toString().padStart(2, '0');
   const minutes = now.getMinutes().toString().padStart(2, '0');
@@ -450,11 +450,7 @@ app.get('/time', (req, res) => {
 
 
 app.post('/manual-refresh', async (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] ||
-                   req.headers['x-real-ip'] ||
-                   req.connection.remoteAddress ||
-                   req.socket.remoteAddress ||
-                   'unknown';
+  const clientIp = getClientIp(req);
 
   const baseMsg = `[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`;
   writeLog(baseMsg);
@@ -501,11 +497,7 @@ app.post('/manual-refresh', async (req, res) => {
 
 // Page focus endpoint
 app.post('/page-focus', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
   
   const focusMsg = `[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`;
   writeLog(focusMsg);
@@ -524,11 +516,7 @@ app.post('/page-focus', (req, res) => {
 app.get('/logs', (req, res) => {
 
 
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
 
   const msg = `[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`;
   writeLog(msg);
@@ -703,11 +691,7 @@ app.get('/logs', (req, res) => {
 /////////////////////////////////////////////////////////////////////////////////////////////////////
 // Clear logs endpoint
 app.post('/clear-logs', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
   
   writeLog(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
   cloudwatchLogger.info(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
@@ -744,11 +728,7 @@ app.get('/health', (req, res) => {
   const uptime = process.uptime();
   const memUsage = process.memoryUsage();
   const loadAvg = os.loadavg();
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
+  const clientIp = getClientIp(req);
   
   // Only log health checks every 5 minutes to avoid spam
   const now = Date.now();
@@ -974,7 +954,7 @@ app.get('/health', (req, res) => {
 
 ///////////////////////////////////////////////////////////////////////////////
 app.get('/compression-test', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const clientIp = getClientIp(req);
   writeLog(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
   cloudwatchLogger.info(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
 
@@ -984,7 +964,7 @@ app.get('/compression-test', (req, res) => {
 
 
 app.get('/insert-ui', (req, res) => {
-  const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+  const clientIp = getClientIp(req);
   writeLog(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
   cloudwatchLogger.info(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
 
@@ -1013,22 +993,32 @@ app.get('/insert-ui', (req, res) => {
 
 
 
+// Request logging middleware (should come BEFORE error handlers)
+app.use((req, res, next) => {
+  const clientIp = getClientIp(req);
+  cloudwatchLogger.info(`[REQ] ${req.method} ${req.originalUrl} - IP: ${clientIp}`);
+  next();
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
-  const clientIp = req.headers['x-forwarded-for'] || 
-                   req.headers['x-real-ip'] || 
-                   req.connection.remoteAddress || 
-                   req.socket.remoteAddress || 
-                   'unknown';
-  
+  const clientIp = getClientIp(req);
   writeLog(`[ERROR] ${err.message} - IP: ${clientIp} - Stack: ${err.stack}`);
   cloudwatchLogger.error(`${err.message} - IP: ${clientIp}`, { stack: err.stack });
-
 
   res.status(500).json({ 
     error: 'Something went wrong!', 
     timestamp: new Date().toISOString() 
   });
+});
+
+
+app.use((req, res) => {
+  const clientIp = getClientIp(req);
+  const msg = `[NOT_FOUND] ${req.method} ${req.originalUrl} - IP: ${clientIp}`;
+  writeLog(msg);
+  cloudwatchLogger.warn(msg);
+  res.status(404).json({ error: 'Not found' });
 });
 
 
