@@ -1,10 +1,10 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 const mysql = require('mysql2/promise');
-const { logToCloudWatch } = require('./cloudwatch-logger');
 
-const promiseDB = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
+// Create connection pool
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   waitForConnections: true,
@@ -12,21 +12,24 @@ const promiseDB = mysql.createPool({
   queueLimit: 0,
 });
 
-async function queryWithLogging(sql, params = []) {
-  const formattedQuery = mysql.format(sql, params);
-  const timestamp = new Date().toISOString();
 
+
+// Test connection on startup
+async function testConnection() {
   try {
-    const [rows] = await promiseDB.query(sql, params);
-    await logToCloudWatch(`[DB QUERY SUCCESS] ${timestamp}\n${formattedQuery}`);
-    return rows;
+    const connection = await pool.getConnection();
+    console.log('✅ Database connected successfully');
+    connection.release();
   } catch (err) {
-    await logToCloudWatch(`[DB QUERY ERROR] ${timestamp}\n${formattedQuery}\nError: ${err.message}`);
-    throw err;
+    console.error('❌ Database connection failed:', err.message);
   }
 }
 
+// Call test connection
+testConnection();
+
+// Export the query method
 module.exports = {
-  mysqlQuery: queryWithLogging,
-  mysqlPool: promiseDB,
+  query: (sql, params) => pool.execute(sql, params),
+  pool: pool
 };

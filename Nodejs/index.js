@@ -1,47 +1,19 @@
 const express = require('express');
 const os = require('os');
-const fs = require('fs');
-const path = require('path');
-// Load environment variables from .env
-require('dotenv').config({ path: __dirname + '/.env' });
+require('dotenv').config();
 
 const db = require('./db');
-const { faker }   = require('@faker-js/faker');
-const compression = require('compression');
+const { faker } = require('@faker-js/faker');
 
-
-const cloudwatchLogger = require('./cloudwatch-logger');
-
-
-const writeLog = require('./logger'); 
 const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`App listening on port ${PORT}`);
-});
-
-app.use(compression({
-  level: 6, // Compression level (1–9), 6 is a good balance between speed and compression
-  threshold: 1024, // Only compress responses >1KB
-  filter: (req, res) => {
-    if (req.headers['x-no-compression']) {
-      return false; // Skip compression if client requests no compression
-    }
-    return compression.filter(req, res); // Fallback to default filter
-  }
-}));
-
-
-const requestLogger = require('./middleware/requestLogger');
-app.use(requestLogger);
-app.use(cloudwatchLogger.expressMiddleware());
+const HOSTNAME = os.hostname();
 
 // Track page visits
 let visitCount = 0;
 let uniqueVisitors = new Set();
-
 
 function getClientIp(req) {
   return req.headers['x-forwarded-for'] || 
@@ -51,126 +23,25 @@ function getClientIp(req) {
          'unknown';
 }
 
-
-// Middleware to log all requests
-app.use((req, res, next) => {
-  const clientIp = getClientIp(req);
-  const userAgent = req.headers['user-agent'] || 'Unknown';
-  const method = req.method;
-  const url = req.url;
-  
-  const logEntry = `[ACCESS] ${method} ${url} - IP: ${clientIp} - User-Agent: ${userAgent}`;
-  cloudwatchLogger.info(logEntry, {
-    method,
-    url,
-    clientIp,
-    userAgent
-  });
-  
-  next();
+// Start server
+app.listen(PORT, () => {
+  console.log(`🚀 App listening on port ${PORT}`);
+  console.log(`🖥️ Server hostname: ${HOSTNAME}`);
 });
 
-
-
-// Get hostname once at startup
-const HOSTNAME = os.hostname();
-
-
-cloudwatchLogger.info(`🚀 Node.js app started on host ${HOSTNAME}`);
-
-// Database
-
-
-app.post('/insert-random-user', async (req, res) => {
-  const clientIp = getClientIp(req);
-  try {
-    const nameParts = faker.person.fullName().split(' ');
-    const firstName = nameParts[0];
-    const lastName  = nameParts[1] || '';
-    const name      = `${firstName} ${lastName}`;
-    const email     = faker.internet.email({ firstName, lastName });
-    const user_type = 'User';
-
-    const insertQuery = `
-      INSERT INTO users (name, email, user_type)
-      VALUES (?, ?, ?)
-    `;
-    await db.query(insertQuery, [name, email, user_type]);
-
-    await cloudwatchLogger.info(`[DB] Inserted user: ${name}, ${email}`);
-
-    res.status(200).json({ success: true, name, email });
-  } catch (err) {
-    console.error('Error inserting random user:', err);
-    cloudwatchLogger.error('Failed to insert user', {
-      message: err.message,
-      stack: err.stack,
-      ip: clientIp
-    });
-
-    res.status(500).json({ success: false, error: 'Failed to insert user' });
-  }
-});
-
-
-// (Optional) A GET to verify you can read back users
-app.get('/users', async (req, res) => {
-  const clientIp = getClientIp(req);
-  try {
-    const [rows] = await db.query('SELECT * FROM users');
-    await cloudwatchLogger.info(`[DB] Queried all users. Count: ${rows.length}`);
-    res.json(rows);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    cloudwatchLogger.error('Failed to fetch users', {
-      message: err.message,
-      stack: err.stack,
-      ip: clientIp
-    });
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////
-
-// Serve the static HTML page
+// Home page
 app.get('/', (req, res) => {
   const clientIp = getClientIp(req);
-
   visitCount++;
   uniqueVisitors.add(clientIp);
 
-  const logMsg = `🏠 [HOME] Visit #${visitCount} - IP: ${clientIp} - Unique Visitors: ${uniqueVisitors.size}`;
-  
-  cloudwatchLogger.info(logMsg, {
-    visitCount,
-    uniqueVisitors: uniqueVisitors.size,
-    clientIp,
-    page: 'home'
-  });
-
+  console.log(`🏠 Home page visit #${visitCount} from IP: ${clientIp}`);
 
   res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Live Time - CloudWatch Monitoring</title>
+      <title>Live Time - Simple App</title>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
@@ -202,7 +73,7 @@ app.get('/', (req, res) => {
           margin-top: 30px;
           font-size: 1.2em;
         }
-        .refresh-btn {
+        .btn {
           background: #4CAF50;
           color: white;
           border: none;
@@ -214,38 +85,33 @@ app.get('/', (req, res) => {
           transition: all 0.3s ease;
           box-shadow: 0 4px 15px 0 rgba(76, 175, 80, 0.3);
         }
-        .refresh-btn:hover {
+        .btn:hover {
           background: #45a049;
           transform: translateY(-2px);
           box-shadow: 0 6px 20px 0 rgba(76, 175, 80, 0.4);
         }
-        .log-indicator {
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background: rgba(76, 175, 80, 0.9);
-          color: white;
-          padding: 10px 20px;
-          border-radius: 20px;
-          font-size: 0.9em;
-          opacity: 0;
-          transition: opacity 0.3s ease;
-          backdrop-filter: blur(5px);
-          z-index: 1000;
+        .btn.secondary {
+          background: #2196F3;
+          box-shadow: 0 4px 15px 0 rgba(33, 150, 243, 0.3);
         }
-        .log-indicator.show {
-          opacity: 1;
+        .btn.secondary:hover {
+          background: #1976D2;
+          box-shadow: 0 6px 20px 0 rgba(33, 150, 243, 0.4);
         }
-        .status-indicator {
-          position: fixed;
-          top: 20px;
-          left: 20px;
-          background: rgba(76, 175, 80, 0.9);
-          color: white;
-          padding: 8px 16px;
-          border-radius: 15px;
-          font-size: 0.8em;
-          backdrop-filter: blur(5px);
+        .message {
+          margin-top: 20px;
+          padding: 10px;
+          border-radius: 10px;
+          background: rgba(255,255,255,0.1);
+          display: none;
+        }
+        .message.success {
+          background: rgba(76, 175, 80, 0.3);
+          border: 1px solid #4CAF50;
+        }
+        .message.error {
+          background: rgba(244, 67, 54, 0.3);
+          border: 1px solid #f44336;
         }
         @media (max-width: 768px) {
           .container {
@@ -255,7 +121,7 @@ app.get('/', (req, res) => {
           #time {
             font-size: 2em;
           }
-          .refresh-btn {
+          .btn {
             display: block;
             width: 100%;
             margin: 10px 0;
@@ -264,190 +130,103 @@ app.get('/', (req, res) => {
       </style>
     </head>
     <body>
-      <div class="status-indicator" id="statusIndicator">
-        🟢 LIVE
-      </div>
-      
       <div class="container">
-        <h1>⏰ Live - GMT Time Monitor</h1>
+        <h1>⏰ Live Time Monitor</h1>
         <div id="time">Loading...</div>
         <div class="stats">
           <div>Visit Count: <span id="visitCount">${visitCount}</span></div>
           <div>Unique Visitors: <span id="uniqueVisitors">${uniqueVisitors.size}</span></div>
           <div>Server: <span id="hostname">${HOSTNAME}</span></div>
         </div>
-        <button class="refresh-btn" onclick="manualRefresh()">🔄 Manual Refresh</button>
-        <button class="refresh-btn" onclick="viewLogs()">📊 View Logs</button>
-        <button class="refresh-btn" onclick="viewHealth()">❤️ Health Check</button>
-        <button class="refresh-btn" onclick="insertRandomUser()">➕ Insert User</button>
-      </div>
-      
-      <div id="logIndicator" class="log-indicator">
-        Log sent to CloudWatch! 📊
+        
+        <div style="margin-top: 30px;">
+          <button class="btn" onclick="insertRandomUser()">➕ Insert User</button>
+          <button class="btn secondary" onclick="viewUsers()">👥 View Users</button>
+          <button class="btn secondary" onclick="refreshTime()">🔄 Refresh</button>
+        </div>
+        
+        <div id="message" class="message"></div>
       </div>
 
       <script>
-        let refreshCount = 0;
-        let isOnline = true;
-        
-        async function updateTime() {
-          try {
-            const res = await fetch('/time');
-            if (!res.ok) throw new Error('HTTP ' + res.status);
-            
-            const data = await res.json();
-            document.getElementById('time').innerText = data.time;
-            document.getElementById('visitCount').innerText = data.visitCount;
-            document.getElementById('uniqueVisitors').innerText = data.uniqueVisitors || 0;
-            
-            // Update status indicator
-            const statusEl = document.getElementById('statusIndicator');
-            statusEl.innerHTML = '🟢 LIVE ';
-            statusEl.style.background = 'rgba(76, 175, 80, 0.9)';
-            
-            if (!isOnline) {
-              isOnline = true;
-              showLogIndicator('🟢 Connection restored!');
-            }
-            
-            showLogIndicator();
-          } catch (error) {
-            console.error('Error fetching time:', error);
-            document.getElementById('time').innerText = 'Error loading time';
-            
-            // Update status indicator
-            const statusEl = document.getElementById('statusIndicator');
-            statusEl.innerHTML = '🔴 OFFLINE';
-            statusEl.style.background = 'rgba(244, 67, 54, 0.9)';
-            
-            if (isOnline) {
-              isOnline = false;
-              showLogIndicator('🔴 Connection lost!', 5000);
-            }
-          }
+        function updateTime() {
+          fetch('/time')
+            .then(res => res.json())
+            .then(data => {
+              document.getElementById('time').innerText = data.time;
+              document.getElementById('visitCount').innerText = data.visitCount;
+              document.getElementById('uniqueVisitors').innerText = data.uniqueVisitors;
+            })
+            .catch(err => {
+              console.error('Error fetching time:', err);
+              document.getElementById('time').innerText = 'Error loading time';
+            });
         }
         
-        async function manualRefresh() {
-          refreshCount++;
-          try {
-            const resp = await fetch('/manual-refresh', { method: 'POST' });
-            const data = await resp.json();
-            showLogIndicator('🔄 Manual refresh logged!');
-
-            // Show inserted user (optional)
-            console.log('Inserted:', data.user);
-
-            // Fetch and show updated users
-            const usersResp = await fetch('/users');
-            const usersData = await usersResp.json();
-            console.log('Users:', usersData);
-            
-            // You can also show it in the DOM if desired
-            // For example:
-            // document.getElementById('output').textContent = JSON.stringify(usersData, null, 2);
-          } catch (error) {
-            console.error('Manual refresh error:', error);
-            showLogIndicator('❌ Refresh failed!', 3000);
-          }
-          await updateTime();
-        }
-
         async function insertRandomUser() {
           try {
-            const resp = await fetch('/insert-random-user', { method: 'POST' });
-            const data = await resp.json();
+            const response = await fetch('/insert-random-user', { method: 'POST' });
+            const data = await response.json();
             
             if (data.success) {
-              showLogIndicator('User inserted: ' + data.name, 3000);
+              showMessage(\`✅ User inserted: \${data.name}\`, 'success');
               console.log('Inserted user:', data);
             } else {
-              showLogIndicator('❌ Failed to insert user!', 3000);
+              showMessage('❌ Failed to insert user', 'error');
             }
           } catch (error) {
             console.error('Insert user error:', error);
-            showLogIndicator('❌ Insert failed!', 3000);
+            showMessage('❌ Network error', 'error');
           }
         }
         
-
-
-        function viewLogs() {
-          window.open('/logs', '_blank');
+        async function viewUsers() {
+          try {
+            const response = await fetch('/users');
+            const users = await response.json();
+            
+            console.log('All users:', users);
+            showMessage(\`📊 \${users.length} users found (check console)\`, 'success');
+          } catch (error) {
+            console.error('Error fetching users:', error);
+            showMessage('❌ Failed to fetch users', 'error');
+          }
         }
         
-        function viewHealth() {
-          window.open('/health', '_blank');
-        }
-        
-        function showLogIndicator(message = 'Log sent to CloudWatch! 📊', duration = 2000) {
-          const indicator = document.getElementById('logIndicator');
-          indicator.innerText = message;
-          indicator.classList.add('show');
-          setTimeout(() => {
-            indicator.classList.remove('show');
-          }, duration);
-        }
-        
-        // Initial call
-        // updateTime();
-        window.addEventListener('load', () => {
+        function refreshTime() {
           updateTime();
-          setInterval(updateTime, 1000);
-        });
+          showMessage('🔄 Time refreshed', 'success');
+        }
         
+        function showMessage(text, type) {
+          const messageEl = document.getElementById('message');
+          messageEl.textContent = text;
+          messageEl.className = \`message \${type}\`;
+          messageEl.style.display = 'block';
+          
+          setTimeout(() => {
+            messageEl.style.display = 'none';
+          }, 3000);
+        }
         
-        
-        // Log page visibility changes
-        document.addEventListener('visibilitychange', () => {
-          if (!document.hidden) {
-            fetch('/page-focus', { method: 'POST' }).catch(console.error);
-          }
-        });
-        
-        // Handle connection errors gracefully
-        window.addEventListener('online', () => {
-          showLogIndicator('🟢 Back online!', 3000);
-        });
-        
-        window.addEventListener('offline', () => {
-          showLogIndicator('🔴 Gone offline!', 3000);
-        });
-
-
-
+        // Initial load and auto-refresh
+        updateTime();
+        setInterval(updateTime, 1000);
       </script>
     </body>
     </html>
   `);
 });
 
-
-
-
-
-
-//////////////////////////////////////////////////////////////////////////////
-// API endpoint to return time data
+// Time API endpoint
 app.get('/time', (req, res) => {
   const now = new Date();
-  const seconds = now.getSeconds();
-  const clientIp = getClientIp(req);
-
   const hours = now.getHours().toString().padStart(2, '0');
   const minutes = now.getMinutes().toString().padStart(2, '0');
-  const sec = seconds.toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayOfWeek = days[now.getDay()];
-  const timeString = `${dayOfWeek} ${hours}:${minutes}:${sec}`;
-
-  if (seconds % 10 === 0) {
-    const logMsg = `[TIME_API] TIME_REQUEST - Time: ${timeString} - IP: ${clientIp}`;
-    cloudwatchLogger.info(logMsg, {
-      timeString,
-      clientIp,
-      endpoint: 'time'
-    });
-  }
+  const timeString = `${dayOfWeek} ${hours}:${minutes}:${seconds}`;
 
   res.json({
     time: `🟢 ${timeString} - Server: ${HOSTNAME}`,
@@ -458,604 +237,78 @@ app.get('/time', (req, res) => {
   });
 });
 
-
-
-
-app.post('/manual-refresh', async (req, res) => {
+// Insert random user endpoint
+app.post('/insert-random-user', async (req, res) => {
   const clientIp = getClientIp(req);
-
-  const baseMsg = `[USER_ACTION] MANUAL_REFRESH - User clicked refresh button - IP: ${clientIp}`;
-  cloudwatchLogger.info(baseMsg, {
-    action: 'manual_refresh',
-    clientIp
-  });
-
+  
   try {
     const nameParts = faker.person.fullName().split(' ');
     const firstName = nameParts[0];
-    const lastName  = nameParts[1] || '';
-    const name      = `${firstName} ${lastName}`;
-    const email     = faker.internet.email({ firstName, lastName });
-    const user_type = 'RefreshUser';
+    const lastName = nameParts[1] || '';
+    const name = `${firstName} ${lastName}`;
+    const email = faker.internet.email({ firstName, lastName });
+    const user_type = 'User';
 
     const insertQuery = `
       INSERT INTO users (name, email, user_type)
       VALUES (?, ?, ?)
     `;
+    
     await db.query(insertQuery, [name, email, user_type]);
-
-    const dbLog = `[DB_INSERT] User inserted via manual refresh - Name: ${name}, Email: ${email}`;
-    cloudwatchLogger.info(dbLog, {
-      operation: 'db_insert',
-      user_name: name,
-      user_email: email,
-      user_type,
-      trigger: 'manual_refresh'
-    });
-
-    res.json({ 
-      status: 'refresh logged + user inserted', 
-      user: { name, email }, 
-      timestamp: new Date().toISOString() 
+    
+    console.log(`✅ User inserted: ${name} (${email}) from IP: ${clientIp}`);
+    
+    res.status(200).json({ 
+      success: true, 
+      name, 
+      email,
+      timestamp: new Date().toISOString()
     });
   } catch (err) {
-    const errMsg = `❌ DB_INSERT_FAILED during manual refresh - IP: ${clientIp} - Error: ${err.message}`;
-    cloudwatchLogger.error(errMsg, {
-      operation: 'db_insert_failed',
-      clientIp,
-      error: err.message,
-      stack: err.stack
-    });
+    console.error('❌ Error inserting user:', err.message);
     
     res.status(500).json({ 
       success: false, 
-      error: 'Refresh logged but failed to insert user',
+      error: 'Failed to insert user',
       timestamp: new Date().toISOString()
     });
   }
 });
 
-
-
-
-// Page focus endpoint
-app.post('/page-focus', (req, res) => {
+// Get all users endpoint
+app.get('/users', async (req, res) => {
   const clientIp = getClientIp(req);
   
-  const focusMsg = `[USER_ACTION] PAGE_FOCUS - User returned to page - IP: ${clientIp}`;
-  writeLog(focusMsg);
-  cloudwatchLogger.info(focusMsg);
-
-  res.json({ status: 'focus logged', timestamp: new Date().toISOString() });
-});
-
-
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////////////
-// Logs viewer endpoint
-app.get('/logs', (req, res) => {
-
-
-  const clientIp = getClientIp(req);
-
-  const msg = `[ADMIN] LOGS_VIEWED - User accessed logs page - IP: ${clientIp}`;
-  writeLog(msg);
-  cloudwatchLogger.info(msg);
-
-  // Get current log file path
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const year = now.getFullYear();
-  const logDir = `/mnt/efs/logs/${month}-${day}-${year}/${HOSTNAME}`;
-  const logFile = path.join(logDir, 'node-app.log');
-
-  fs.readFile(logFile, 'utf8', (err, data) => {
-    if (err) {
-      const errMsg = `[ERROR] LOG_READ_ERROR - ${err.message}`;
-      writeLog(errMsg);
-      cloudwatchLogger.error(errMsg);
-      return res.status(500).send('Error reading logs');
-    }
-
-    const lines = data.split('\n').filter(line => line.trim()).slice(-100);
-
+  try {
+    const [rows] = await db.query('SELECT * FROM users ORDER BY created_at DESC');
     
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Application Logs - ${HOSTNAME}</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            font-family: 'Courier New', monospace; 
-            margin: 0; 
-            padding: 0;
-            background: #1e1e1e; 
-            color: #fff; 
-            font-size: 14px;
-          }
-          .log-entry { 
-            margin: 2px 0; 
-            padding: 8px 12px; 
-            border-left: 3px solid #4CAF50; 
-            background: rgba(255,255,255,0.02);
-            word-wrap: break-word;
-            font-family: 'Courier New', monospace;
-            font-size: 13px;
-            line-height: 1.4;
-          }
-          .log-entry.ERROR { border-left-color: #f44336; background: rgba(244, 67, 54, 0.1); }
-          .log-entry.WARN { border-left-color: #ff9800; background: rgba(255, 152, 0, 0.1); }
-          .log-entry.ACCESS { border-left-color: #2196F3; background: rgba(33, 150, 243, 0.05); }
-          .log-entry.USER_ACTION { border-left-color: #9c27b0; background: rgba(156, 39, 176, 0.1); }
-          .log-entry.STARTUP { border-left-color: #00bcd4; background: rgba(0, 188, 212, 0.1); }
-          .log-entry.SYSTEM { border-left-color: #ff5722; background: rgba(255, 87, 34, 0.1); }
-          .log-entry.HEALTH { border-left-color: #8bc34a; background: rgba(139, 195, 74, 0.1); }
-          .log-entry.TIME_API { border-left-color: #607d8b; background: rgba(96, 125, 139, 0.05); }
-          .log-entry.PAGE_VIEW { border-left-color: #e91e63; background: rgba(233, 30, 99, 0.1); }
-          .log-entry.ADMIN { border-left-color: #795548; background: rgba(121, 85, 72, 0.1); }
-          .header { 
-            background: #333; 
-            padding: 20px; 
-            margin: 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-          }
-          .refresh-btn { 
-            background: #4CAF50; 
-            color: white; 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 5px; 
-            cursor: pointer; 
-            margin-right: 10px; 
-            margin-bottom: 10px;
-            transition: background 0.3s;
-          }
-          .refresh-btn:hover { background: #45a049; }
-          .refresh-btn.danger { background: #f44336; }
-          .refresh-btn.danger:hover { background: #da190b; }
-          .hostname-badge { 
-            background: #2196F3; 
-            padding: 5px 15px; 
-            border-radius: 15px; 
-            font-size: 0.9em; 
-            margin-left: 10px;
-          }
-          .log-container {
-            padding: 20px;
-            max-height: calc(100vh - 160px);
-            overflow-y: auto;
-          }
-          .stats {
-            background: #444;
-            padding: 10px 20px;
-            margin: 0;
-            font-size: 14px;
-            color: #ccc;
-          }
-          @media (max-width: 768px) {
-            .header { padding: 15px; }
-            .log-entry { font-size: 12px; padding: 6px 8px; }
-            .refresh-btn { padding: 8px 15px; font-size: 14px; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>📊 Application Logs <span class="hostname-badge">${HOSTNAME}</span></h1>
-          <div class="stats">
-            Last ${lines.length} entries • Auto-refresh: 10s • Total size: ${(data.length / 1024).toFixed(1)}KB
-          </div>
-          <div style="margin-top: 15px;">
-            <button class="refresh-btn" onclick="location.reload()">🔄 Refresh Now</button>
-            <button class="refresh-btn" onclick="window.close()">❌ Close</button>
-            <button class="refresh-btn danger" onclick="clearLogs()">🗑️ Clear Logs</button>
-          </div>
-        </div>
-        <div class="log-container">
-          ${lines.map(line => {
-            const levelMatch = line.match(/\\[(.*?)\\]/);
-            const level = levelMatch ? levelMatch[1] : 'INFO';
-            const timestamp = line.match(/^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z)/)?.[1] || '';
-            return '<div class="log-entry ' + level + '" title="' + timestamp + '">' + line + '</div>';
-          }).join('')}
-        </div>
-        <script>
-          let autoRefresh = true;
-          
-          function clearLogs() {
-            if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
-              fetch('/clear-logs', { method: 'POST' })
-                .then(() => location.reload())
-                .catch(err => alert('Failed to clear logs: ' + err.message));
-            }
-          }
-          
-          // Auto-refresh logs every 10 seconds
-          function scheduleRefresh() {
-            if (autoRefresh && !document.hidden) {
-              setTimeout(() => {
-                location.reload();
-              }, 10000);
-            }
-          }
-          
-          // Pause auto-refresh when tab is hidden
-          document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-              scheduleRefresh();
-            }
-          });
-          
-          // Auto-scroll to bottom
-          window.addEventListener('load', () => {
-            window.scrollTo(0, document.body.scrollHeight);
-            scheduleRefresh();
-          });
-        </script>
-      </body>
-      </html>
-    `);
-  });
-});
-
-
-
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-// Clear logs endpoint
-app.post('/clear-logs', (req, res) => {
-  const clientIp = getClientIp(req);
-  
-  writeLog(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
-  cloudwatchLogger.info(`[ADMIN] LOGS_CLEARED - User cleared logs - IP: ${clientIp}`);
-  
-  // Get current log file path (same as logger.js)
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const year = now.getFullYear();
-  const logDir = `/mnt/efs/logs/${month}-${day}-${year}/${HOSTNAME}`;
-  const logFile = path.join(logDir, 'node-app.log');
-  
-  // Clear the log file
-  fs.writeFile(logFile, '', (err) => {
-    if (err) {
-      writeLog(`[ERROR] LOG_CLEAR_ERROR - ${err.message}`);
-      return res.status(500).json({ error: 'Failed to clear logs' });
-    }
+    console.log(`📊 Users queried by IP: ${clientIp}, Count: ${rows.length}`);
     
-    writeLog(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
-    cloudwatchLogger.info(`[SYSTEM] LOG_FILE_CLEARED - Log file cleared by user - IP: ${clientIp}`);
-
-
-    res.json({ status: 'logs cleared', timestamp: new Date().toISOString() });
-  });
-});
-
-
-
-// Enhanced health check
-app.get('/health', (req, res) => {
-  cloudwatchLogger.info(`💓 [HEALTH] Check from ${req.ip}`);
-
-  const uptime = process.uptime();
-  const memUsage = process.memoryUsage();
-  const loadAvg = os.loadavg();
-  const clientIp = getClientIp(req);
-  
-  // Only log health checks every 5 minutes to avoid spam
-  const now = Date.now();
-  if (!app.lastHealthLog || now - app.lastHealthLog > 300000) {
-    writeLog(`[HEALTH] HEALTH_CHECK - Uptime: ${Math.floor(uptime)}s - Memory: ${Math.round(memUsage.rss / 1024 / 1024)}MB - Load: ${loadAvg[0].toFixed(2)} - IP: ${clientIp}`);
-    app.lastHealthLog = now;
-  }
-  
-  const healthData = {
-    status: 'OK',
-    uptime: Math.floor(uptime),
-    memory: {
-      rss: Math.round(memUsage.rss / 1024 / 1024),
-      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-      external: Math.round(memUsage.external / 1024 / 1024)
-    },
-    system: {
-      loadAverage: loadAvg,
-      totalMemory: Math.round(os.totalmem() / 1024 / 1024 / 1024),
-      freeMemory: Math.round(os.freemem() / 1024 / 1024 / 1024),
-      cpuCount: os.cpus().length
-    },
-    application: {
-      visitCount: visitCount,
-      uniqueVisitors: uniqueVisitors.size,
-      nodeVersion: process.version,
-      platform: os.platform(),
-      arch: os.arch()
-    },
-    hostname: HOSTNAME,
-    timestamp: new Date().toISOString()
-  };
-  
-  // Return JSON for API calls, HTML for browser
-  if (req.headers.accept && req.headers.accept.includes('application/json')) {
-    res.status(200).json(healthData);
-  } else {
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Health Check - ${HOSTNAME}</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-          }
-          .health-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: rgba(255,255,255,0.1);
-            padding: 30px;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-          }
-          .health-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-          }
-          .health-card {
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 15px;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-          .health-card h3 {
-            margin-top: 0;
-            color: #4CAF50;
-          }
-          .metric {
-            display: flex;
-            justify-content: space-between;
-            margin: 10px 0;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-          }
-          .metric:last-child {
-            border-bottom: none;
-          }
-          .status-ok {
-            color: #4CAF50;
-            font-weight: bold;
-            font-size: 1.2em;
-          }
-          .back-btn {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 1.1em;
-            border-radius: 25px;
-            cursor: pointer;
-            margin: 20px 10px 0 0;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-          }
-          .back-btn:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-          }
-        </style>
-      </head>
-      <body>
-        <div class="health-container">
-          <h1>🏥 System Health Check</h1>
-          <div class="status-ok">✅ System Status: ${healthData.status}</div>
-          <div class="health-grid">
-            <div class="health-card">
-              <h3>🖥️ System Info</h3>
-              <div class="metric">
-                <span>Hostname:</span>
-                <span>${healthData.hostname}</span>
-              </div>
-              <div class="metric">
-                <span>Platform:</span>
-                <span>${healthData.application.platform}</span>
-              </div>
-              <div class="metric">
-                <span>Architecture:</span>
-                <span>${healthData.application.arch}</span>
-              </div>
-              <div class="metric">
-                <span>Node Version:</span>
-                <span>${healthData.application.nodeVersion}</span>
-              </div>
-              <div class="metric">
-                <span>CPU Cores:</span>
-                <span>${healthData.system.cpuCount}</span>
-              </div>
-            </div>
-            
-            <div class="health-card">
-              <h3>⏱️ Runtime</h3>
-              <div class="metric">
-                <span>Uptime:</span>
-                <span>${Math.floor(healthData.uptime / 3600)}h ${Math.floor((healthData.uptime % 3600) / 60)}m ${healthData.uptime % 60}s</span>
-              </div>
-              <div class="metric">
-                <span>Total Visits:</span>
-                <span>${healthData.application.visitCount}</span>
-              </div>
-              <div class="metric">
-                <span>Unique Visitors:</span>
-                <span>${healthData.application.uniqueVisitors}</span>
-              </div>
-            </div>
-            
-            <div class="health-card">
-              <h3>💾 Memory Usage</h3>
-              <div class="metric">
-                <span>RSS:</span>
-                <span>${healthData.memory.rss} MB</span>
-              </div>
-              <div class="metric">
-                <span>Heap Used:</span>
-                <span>${healthData.memory.heapUsed} MB</span>
-              </div>
-              <div class="metric">
-                <span>Heap Total:</span>
-                <span>${healthData.memory.heapTotal} MB</span>
-              </div>
-              <div class="metric">
-                <span>External:</span>
-                <span>${healthData.memory.external} MB</span>
-              </div>
-            </div>
-            
-            <div class="health-card">
-              <h3>🖲️ System Resources</h3>
-              <div class="metric">
-                <span>Load Average:</span>
-                <span>${healthData.system.loadAverage[0].toFixed(2)}</span>
-              </div>
-              <div class="metric">
-                <span>Total Memory:</span>
-                <span>${healthData.system.totalMemory} GB</span>
-              </div>
-              <div class="metric">
-                <span>Free Memory:</span>
-                <span>${healthData.system.freeMemory} GB</span>
-              </div>
-              <div class="metric">
-                <span>Memory Usage:</span>
-                 <span>${Math.round(((healthData.system.totalMemory - healthData.system.freeMemory) / healthData.system.totalMemory) * 100)}%</span>
-              </div>
-            </div>
-          </div>
-          <div style="margin-top: 30px;">
-            <a href="/" class="back-btn">🏠 Back to Home</a>
-            <button class="back-btn" onclick="location.reload()">🔄 Refresh</button>
-          </div>
-          
-          <div style="margin-top: 20px; font-size: 0.9em; opacity: 0.8;">
-            Last updated: ${healthData.timestamp}
-          </div>
-        </div>
-        <script>
-          // Auto-refresh every 30 seconds
-          setTimeout(() => {
-            location.reload();
-          }, 30000);
-        </script>
-      </body>
-      </html>
-    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error fetching users:', err.message);
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
-
-
-
-
-///////////////////////////////////////////////////////////////////////////////
-app.get('/compression-test', (req, res) => {
+// 404 handler
+app.use((req, res) => {
   const clientIp = getClientIp(req);
-  writeLog(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
-  cloudwatchLogger.info(`[SYSTEM] COMPRESSION_TEST - IP: ${clientIp}`);
-
-  res.setHeader('Content-Type', 'text/plain');
-  res.send('This is a compression test string that should be long enough to trigger compression if GZIP is enabled.');
+  console.log(`❓ 404 - ${req.method} ${req.originalUrl} from IP: ${clientIp}`);
+  res.status(404).json({ error: 'Not found' });
 });
 
-
-app.get('/insert-ui', (req, res) => {
-  const clientIp = getClientIp(req);
-  writeLog(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
-  cloudwatchLogger.info(`[ADMIN] INSERT_UI_PAGE_VIEWED - IP: ${clientIp}`);
-
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head><title>Insert Random User</title></head>
-    <body>
-      <h1>Users</h1>
-      <button id="add">➕ Insert Random User</button>
-      <pre id="output"></pre>
-      <script>
-        const out = document.getElementById('output');
-        document.getElementById('add').onclick = async () => {
-          const resp = await fetch('/insert-random-user', { method: 'POST' });
-          const data = await resp.json();
-          out.textContent = JSON.stringify(data, null, 2);
-          const users = await fetch('/users').then(r => r.json());
-          out.textContent += '\\n\\nUsers:\\n' + JSON.stringify(users, null, 2);
-        };
-      </script>
-    </body>
-    </html>
-  `);
-});
-
-
-
-// Request logging middleware (should come BEFORE error handlers)
-app.use((req, res, next) => {
-  const clientIp = getClientIp(req);
-  cloudwatchLogger.info(`[REQ] ${req.method} ${req.originalUrl} - IP: ${clientIp}`);
-  next();
-});
-
-// Error handling middleware
+// Error handler
 app.use((err, req, res, next) => {
   const clientIp = getClientIp(req);
-  cloudwatchLogger.error(`Application error: ${err.message}`, {
-    clientIp,
-    error: err.message,
-    stack: err.stack,
-    url: req.originalUrl,
-    method: req.method
-  });
-
+  console.error(`💥 Server error from IP: ${clientIp}:`, err.message);
+  
   res.status(500).json({ 
     error: 'Something went wrong!', 
     timestamp: new Date().toISOString() 
   });
 });
-
-setInterval(() => {
-  cloudwatchLogger.info('Health check - Application running', {
-    uptime: process.uptime(),
-    memoryUsage: process.memoryUsage(),
-    visitCount,
-    uniqueVisitors: uniqueVisitors.size
-  });
-}, 300000); // Every 5 minutes
-
-app.use((req, res) => {
-  const clientIp = getClientIp(req);
-  const msg = `[NOT_FOUND] ${req.method} ${req.originalUrl} - IP: ${clientIp}`;
-  writeLog(msg);
-  cloudwatchLogger.warn(msg);
-  res.status(404).json({ error: 'Not found' });
-});
-
-
-

@@ -7,17 +7,25 @@
     "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["express", "monitoring", "cloudwatch", "time-server", "nodejs", "aws", "logging"],
+  "keywords": [
+    "express",
+    "monitoring",
+    "cloudwatch",
+    "time-server",
+    "nodejs",
+    "aws",
+    "logging"
+  ],
   "author": "",
   "license": "ISC",
   "description": "Live time monitoring application with CloudWatch logging",
   "dependencies": {
+    "@faker-js/faker": "^9.8.0",
+    "dotenv": "^16.4.5",
     "express": "^5.1.0",
-    "compression": "^1.7.4",
-    "dotenv": "^16.4.5"
+    "mysql2": "^3.14.1"
   },
   "engines": {
     "node": ">=18.0.0"
   }
 }
-
