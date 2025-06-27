@@ -42,6 +42,5 @@ const promiseDB = pool.promise();
 module.exports = {
   db,
   promiseDB,
-  pool,
-  logger
+  pool
 };

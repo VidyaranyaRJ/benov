@@ -4,7 +4,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const os = require('os');
 const { faker } = require('@faker-js/faker');
-const { promiseDB, logger } = require('./js/db');
+const { promiseDB } = require('./js/db');
 const logger = require('./js/logger');
 const app = express();
 
