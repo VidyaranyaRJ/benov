@@ -54,7 +54,16 @@ app.get('/insertRandomUser', async (req, res) => {
 
     res.json({
       message: 'Random user inserted successfully!',
-      user: { name, email, userType, phone, ip_address, host_name },
+      user: { name,
+        email,
+        userType,
+        phone,
+        ip_address,
+        host_name,
+        testcaseid,
+        misc,
+        ec2instances,
+        acu },
       insertId: result.insertId
     });
   } catch (err) {
