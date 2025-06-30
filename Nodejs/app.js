@@ -6,6 +6,7 @@ const os = require('os');
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
 const logger = require('./js/logger');
+
 const app = express();
 
 app.set('view engine', 'ejs');
@@ -29,6 +30,12 @@ function getServerIpAddress() {
 
 app.get('/insertRandomUser', async (req, res) => {
   try {
+    const ec2instances = req.query.ec2instances;
+    const testcaseid = req.query.testcaseid;
+    const misc = req.query.misc;
+    const acu = req.query.acu;
+    
+    console.log(testcaseid);
     const name = faker.person.fullName();
     const email = faker.internet.email();
     const userType = faker.helpers.arrayElement(['Admin', 'User', 'Guest']);
@@ -38,11 +45,12 @@ app.get('/insertRandomUser', async (req, res) => {
     const host_name = os.hostname();
 
     const [result] = await promiseDB.execute(
-      'INSERT INTO users (name, email, user_type, phone, ip_address, host_name) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, email, userType, phone, ip_address, host_name]
+      'INSERT INTO stress_test_users (name, email, user_type, phone, ip_address, host_name, testcaseid, misc, ec2instances, acu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, email, userType, phone, ip_address, host_name, testcaseid, misc, ec2instances, acu]
     );
 
-    logger(req, `Inserted user: ${result.insertId}|${name}`);
+    // Pipe-separated console log
+    console.log(host_name, ` | Inserted stress_test_users: ${result.insertId}|${name}`);
 
     res.json({
       message: 'Random user inserted successfully!',
@@ -58,7 +66,7 @@ app.get('/insertRandomUser', async (req, res) => {
 app.get('/listUsers', async (req, res) => {
   try {
     const [rows] = await promiseDB.execute(
-      'SELECT * FROM users ORDER BY user_id DESC LIMIT 100'
+      'SELECT * FROM stress_test_users ORDER BY user_id DESC LIMIT 1000'
     );
     res.json({ users: rows });
   } catch (err) {
@@ -69,7 +77,7 @@ app.get('/listUsers', async (req, res) => {
 
 app.get('/users', async (req, res) => {
   try {
-    const [rows] = await promiseDB.query('SELECT * FROM users LIMIT 10');
+    const [rows] = await promiseDB.query('SELECT * FROM stress_test_users LIMIT 10');
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -77,9 +85,13 @@ app.get('/users', async (req, res) => {
   }
 });
 
-
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
+});
+
+
+app.get('/', (req, res) => {
+  res.send('Benevolate');
 });
 
 const PORT = process.env.PORT || 3000;

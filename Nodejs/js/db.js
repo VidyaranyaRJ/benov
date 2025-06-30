@@ -1,6 +1,5 @@
 require('dotenv').config();
 const mysql = require('mysql2');
-const logger = require('./logger');
 
 // ------------------- SINGLE CONNECTION (Legacy) -------------------
 
@@ -13,13 +12,15 @@ const db = mysql.createConnection({
   timezone: '+00:00'
 });
 
-db.connect(err => {
-  if (err) {
-    console.error('Database connection failed: ' + err.stack);
-    return;
-  }
-  console.log('Connected to database.');
-});
+const dbConnect = () => {
+  db.connect(err => {
+    if (err) {
+      console.error('Database connection failed: ' + err.stack);
+      return;
+    }
+    console.log('Connected to database.');
+  });
+};
 
 // ------------------- CONNECTION POOL -------------------
 
@@ -37,10 +38,12 @@ const pool = mysql.createPool({
 
 const promiseDB = pool.promise();
 
+
 // ------------------- EXPORT ALL -------------------
 
 module.exports = {
   db,
   promiseDB,
-  pool
+  pool,
+  dbConnect
 };
