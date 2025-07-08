@@ -99,8 +99,21 @@ app.get('/health', (req, res) => {
 });
 
 
+// app.get('/', (req, res) => {
+//   res.send('Benevolate');
+// });
+
 app.get('/', (req, res) => {
-  res.send('Benevolate');
+  const environment = process.env.ENVIRONMENT || 'EC2 (Default)';
+  const ip_address = getServerIpAddress();
+  const host_name = os.hostname();
+
+  res.send(`
+    <h1>Benevolate</h1>
+    <p><strong>Environment:</strong> ${environment}</p>
+    <p><strong>Host:</strong> ${host_name}</p>
+    <p><strong>IP:</strong> ${ip_address}</p>
+  `);
 });
 
 const PORT = process.env.PORT || 3000;

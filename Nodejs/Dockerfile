@@ -4,6 +4,8 @@ FROM node:18
 # Create the working directory
 WORKDIR /app
 
+ENV ENVIRONMENT=ECS
+
 # Copy package.json (and optionally package-lock.json)
 COPY package*.json ./
 
@@ -18,3 +20,7 @@ EXPOSE 3000
 
 # Run the app
 CMD ["node", "app.js"]
+
+
+
+
