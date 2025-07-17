@@ -714,6 +714,32 @@ else
   exit 1
 fi
 
+
+
+echo "📦 Extracting application..."
+unzip -o ${APP_DIR}/nodejs-app.zip -d ${TEMP_DIR}
+
+echo "🔍 DEBUG: Checking extracted contents..."
+echo "Contents of ${TEMP_DIR}:"
+ls -la ${TEMP_DIR}
+
+echo "🔍 DEBUG: Looking for package.json locations..."
+find ${TEMP_DIR} -name "package.json" -exec echo "Found: {}" \;
+
+echo "🔍 DEBUG: Looking for app.js locations..."
+find ${TEMP_DIR} -name "app.js" -exec echo "Found: {}" \;
+
+echo "🔍 DEBUG: If app.js exists, show first 10 lines..."
+if [ -f "${TEMP_DIR}/app.js" ]; then
+    echo "=== ${TEMP_DIR}/app.js (first 10 lines) ==="
+    head -n 10 "${TEMP_DIR}/app.js"
+elif [ -f "${TEMP_DIR}/Nodejs/app.js" ]; then
+    echo "=== ${TEMP_DIR}/Nodejs/app.js (first 10 lines) ==="
+    head -n 10 "${TEMP_DIR}/Nodejs/app.js"
+fi
+
+
+
 # === Node.js Installation ===
 if ! command -v node &>/dev/null; then
   echo "📦 Installing Node.js..."
