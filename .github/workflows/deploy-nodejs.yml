@@ -58,7 +58,6 @@
 
 
 
-
 name: Node.js App Deployment
 
 on:
@@ -211,27 +210,60 @@ jobs:
           ENV_NAME="${{ steps.env-map.outputs.env_name }}"
           echo "🔍 Finding EC2 instances for environment: ${ENV_NAME}"
           
-          # Find instances with multiple tag patterns
+          # First try: Look for instances with Environment tag
           INSTANCE_IDS=$(aws ec2 describe-instances \
             --filters \
-              "Name=tag:Name,Values=*-${ENV_NAME},*-${ENV_NAME}-*" \
               "Name=tag:Environment,Values=${ENV_NAME}" \
               "Name=instance-state-name,Values=running" \
             --query "Reservations[*].Instances[*].InstanceId" \
             --output text | tr '\n' ' ')
           
+          # Second try: Look for instances with name containing environment
+          if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
+            echo "🔍 No instances found with Environment tag, trying name patterns..."
+            
+            INSTANCE_IDS=$(aws ec2 describe-instances \
+              --filters \
+                "Name=tag:Name,Values=*-${ENV_NAME},*-${ENV_NAME}-*,*${ENV_NAME}*" \
+                "Name=instance-state-name,Values=running" \
+              --query "Reservations[*].Instances[*].InstanceId" \
+              --output text | tr '\n' ' ')
+          fi
+          
+          # Third try: Manual filtering based on your naming convention
+          if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
+            echo "🔍 Trying manual pattern matching for environment: ${ENV_NAME}"
+            
+            # Get all running instances and filter by name
+            ALL_RUNNING=$(aws ec2 describe-instances \
+              --filters "Name=instance-state-name,Values=running" \
+              --query "Reservations[*].Instances[*].[InstanceId,Tags[?Key=='Name']|[0].Value]" \
+              --output text)
+            
+            echo "🔍 All running instances:"
+            echo "$ALL_RUNNING"
+            
+            # Filter instances that have the environment in their name
+            INSTANCE_IDS=$(echo "$ALL_RUNNING" | grep -i "${ENV_NAME}" | awk '{print $1}' | tr '\n' ' ')
+            
+            if [[ -n "$INSTANCE_IDS" && "$INSTANCE_IDS" != " " ]]; then
+              echo "✅ Found instances by name pattern: $INSTANCE_IDS"
+            fi
+          fi
+          
           if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
             echo "❌ No running EC2 instances found for environment: ${ENV_NAME}"
-            echo "🔍 Searching for any instances with Environment tag..."
+            echo "🔍 Available running instances:"
             
-            # Broader search
-            ALL_INSTANCES=$(aws ec2 describe-instances \
+            aws ec2 describe-instances \
               --filters "Name=instance-state-name,Values=running" \
-              --query "Reservations[*].Instances[*].[InstanceId,Tags[?Key=='Environment']|[0].Value,Tags[?Key=='Name']|[0].Value]" \
-              --output table)
+              --query "Reservations[*].Instances[*].[InstanceId,Tags[?Key=='Name']|[0].Value,Tags[?Key=='Environment']|[0].Value]" \
+              --output table
             
-            echo "Available running instances:"
-            echo "$ALL_INSTANCES"
+            echo ""
+            echo "💡 To fix this, either:"
+            echo "   1. Add an 'Environment' tag with value '${ENV_NAME}' to your EC2 instance"
+            echo "   2. Or ensure your instance name contains '${ENV_NAME}' (like 'Sun-${ENV_NAME}')"
             exit 1
           fi
           
