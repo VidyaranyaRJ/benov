@@ -109,7 +109,7 @@ app.get('/', (req, res) => {
   const host_name = os.hostname();
 
   res.send(`
-    <h1>Benevolate</h1>
+    <h1>Benevolate - 7/17</h1>
     <p><strong>Environment:</strong> ${environment}</p>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
