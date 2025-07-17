@@ -36,7 +36,7 @@ fi
 echo "🔍 Fetching EC2 instance IDs for Env=${ENVIRONMENT}..."
 INSTANCE_IDS=$(aws ec2 describe-instances \
   --region $AWS_REGION \
-  --filters "Name=tag:Env,Values=$ENVIRONMENT" "Name=instance-state-name,Values=running" \
+  --filters "Name=tag:Env,Values=*-${ENVIRONMENT}" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[].InstanceId" \
   --output text)
 
