@@ -33,12 +33,13 @@ else
 fi
 
 # === 2. Get EC2 Instance IDs ===
-echo "🔍 Fetching EC2 instance IDs for Env=${ENVIRONMENT}..."
+echo "🔍 Fetching EC2 instances with Name ending in -${ENVIRONMENT}..."
 INSTANCE_IDS=$(aws ec2 describe-instances \
   --region $AWS_REGION \
-  --filters "Name=tag:Env,Values=*-${ENVIRONMENT}" "Name=instance-state-name,Values=running" \
+  --filters "Name=tag:Name,Values=*-dev" "Name=instance-state-name,Values=running" \
   --query "Reservations[].Instances[].InstanceId" \
   --output text)
+
 
 if [ -z "$INSTANCE_IDS" ]; then
   echo "❌ No EC2 instances found!"
