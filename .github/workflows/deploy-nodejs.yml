@@ -1,63 +1,3 @@
-# name: Node.js App Deployment
-
-# on:
-#   push:
-#     branches:
-#       - dev
-#       - uat
-#       - main
-#   workflow_dispatch:
-#     inputs:
-#       environment:
-#         description: "Environment to deploy (dev, uat, prod)"
-#         required: true
-#         default: dev
-
-# env:
-#   AWS_REGION: us-east-2
-#   S3_BUCKET: vj-test-benvolate
-#   MODULE: Nodejs
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Configure AWS Credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#           aws-region: ${{ env.AWS_REGION }}
-
-#       - name: Determine environment name
-#         id: env-map
-#         run: |
-#           if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-#             echo "env_name=prod" >> $GITHUB_OUTPUT
-#           else
-#             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-#           fi
-
-#       - name: Zip and upload Node.js app to S3
-#         run: |
-#           # Create ZIP with the Nodejs folder structure intact
-#           # This maintains the folder structure that your deployment script expects
-#           zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
-#           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
-
-#       - name: Run deploy.sh for ${{ env.MODULE }}
-#         env:
-#           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
-#         run: |
-#           echo "Deploying $MODULE to environment $ENVIRONMENT"
-#           bash $MODULE/deploy.sh $ENVIRONMENT
-
-
-
 name: Node.js App Deployment
 
 on:
@@ -66,26 +6,12 @@ on:
       - dev
       - uat
       - main
-    paths:
-      - 'Nodejs/**'
-      - 'node-deploy.sh'
-      - '.github/workflows/deploy-nodejs.yml'
   workflow_dispatch:
     inputs:
       environment:
         description: "Environment to deploy (dev, uat, prod)"
         required: true
         default: dev
-        type: choice
-        options:
-          - dev
-          - uat
-          - prod
-      force_deployment:
-        description: "Force deployment even if no changes detected"
-        required: false
-        default: false
-        type: boolean
 
 env:
   AWS_REGION: us-east-2
@@ -95,18 +21,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    
-    outputs:
-      deployment_status: ${{ steps.deploy.outcome }}
-      environment: ${{ steps.env-map.outputs.env_name }}
-      instance_ids: ${{ steps.find-instances.outputs.instance_ids }}
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -118,318 +36,23 @@ jobs:
       - name: Determine environment name
         id: env-map
         run: |
-          if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
-            echo "env_name=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
             echo "env_name=prod" >> $GITHUB_OUTPUT
           else
             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           fi
-          
-          echo "🎯 Target environment: $(cat $GITHUB_OUTPUT | grep env_name | cut -d'=' -f2)"
 
-      - name: Check for changes (unless forced)
-        id: check-changes
+      - name: Zip and upload Node.js app to S3
         run: |
-          if [[ "${{ github.event.inputs.force_deployment }}" == "true" ]]; then
-            echo "🚀 Force deployment enabled - skipping change detection"
-            echo "should_deploy=true" >> $GITHUB_OUTPUT
-          else
-            # Check if there are changes in relevant files
-            if git diff --name-only HEAD~1 HEAD | grep -E "(Nodejs/|node-deploy\.sh|\.github/workflows/deploy-nodejs\.yml)" > /dev/null; then
-              echo "✅ Changes detected in deployment files"
-              echo "should_deploy=true" >> $GITHUB_OUTPUT
-            else
-              echo "ℹ️ No changes detected in deployment files"
-              echo "should_deploy=false" >> $GITHUB_OUTPUT
-            fi
-          fi
+          # Create ZIP with the Nodejs folder structure intact
+          # This maintains the folder structure that your deployment script expects
+          zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
+          aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
 
-      - name: Validate Node.js application structure
-        if: steps.check-changes.outputs.should_deploy == 'true'
+      - name: Run deploy.sh for ${{ env.MODULE }}
+        env:
+          ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
         run: |
-          echo "🔍 Validating application structure..."
-          
-          # Check for required files
-          if [[ ! -f "Nodejs/app.js" ]]; then
-            echo "❌ app.js not found in Nodejs directory"
-            exit 1
-          fi
-          
-          if [[ ! -f "Nodejs/package.json" ]]; then
-            echo "❌ package.json not found in Nodejs directory"
-            exit 1
-          fi
-          
-          if [[ ! -f "node-deploy.sh" ]]; then
-            echo "❌ node-deploy.sh not found in root directory"
-            exit 1
-          fi
-          
-          # Validate package.json
-          if ! jq empty Nodejs/package.json 2>/dev/null; then
-            echo "❌ package.json is not valid JSON"
-            exit 1
-          fi
-          
-          echo "✅ Application structure validation passed"
+          echo "Deploying $MODULE to environment $ENVIRONMENT"
+          bash /deploy.sh $ENVIRONMENT
 
-      - name: Create deployment package
-        if: steps.check-changes.outputs.should_deploy == 'true'
-        run: |
-          echo "📦 Creating deployment package..."
-          
-          # Create a clean zip with proper structure
-          zip -r nodejs-app.zip Nodejs/ node-deploy.sh -x "**/.git/*" "**/.DS_Store" "**/node_modules/*" "**/coverage/*" "**/dist/*" "**/build/*"
-          
-          # Verify zip contents
-          echo "📋 Deployment package contents:"
-          unzip -l nodejs-app.zip | head -20
-          
-          echo "📊 Package size: $(du -h nodejs-app.zip | cut -f1)"
-
-      - name: Upload to S3
-        if: steps.check-changes.outputs.should_deploy == 'true'
-        run: |
-          ENV_NAME="${{ steps.env-map.outputs.env_name }}"
-          echo "📤 Uploading to S3 bucket: ${{ env.S3_BUCKET }}/nodejs/${ENV_NAME}/"
-          
-          # Upload the zip file
-          aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${ENV_NAME}/
-          
-          # Upload deployment script separately for direct access
-          aws s3 cp node-deploy.sh s3://${{ env.S3_BUCKET }}/nodejs/${ENV_NAME}/
-          
-          echo "✅ Upload complete. Verifying S3 contents:"
-          aws s3 ls s3://${{ env.S3_BUCKET }}/nodejs/${ENV_NAME}/
-
-      - name: Find target EC2 instances
-        if: steps.check-changes.outputs.should_deploy == 'true'
-        id: find-instances
-        run: |
-          ENV_NAME="${{ steps.env-map.outputs.env_name }}"
-          echo "🔍 Finding EC2 instances for environment: ${ENV_NAME}"
-          
-          # First try: Look for instances with Environment tag
-          INSTANCE_IDS=$(aws ec2 describe-instances \
-            --filters \
-              "Name=tag:Environment,Values=${ENV_NAME}" \
-              "Name=instance-state-name,Values=running" \
-            --query "Reservations[*].Instances[*].InstanceId" \
-            --output text | tr '\n' ' ')
-          
-          # Second try: Look for instances with name containing environment
-          if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
-            echo "🔍 No instances found with Environment tag, trying name patterns..."
-            
-            INSTANCE_IDS=$(aws ec2 describe-instances \
-              --filters \
-                "Name=tag:Name,Values=*-${ENV_NAME},*-${ENV_NAME}-*,*${ENV_NAME}*" \
-                "Name=instance-state-name,Values=running" \
-              --query "Reservations[*].Instances[*].InstanceId" \
-              --output text | tr '\n' ' ')
-          fi
-          
-          # Third try: Manual filtering based on your naming convention
-          if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
-            echo "🔍 Trying manual pattern matching for environment: ${ENV_NAME}"
-            
-            # Get all running instances and filter by name
-            ALL_RUNNING=$(aws ec2 describe-instances \
-              --filters "Name=instance-state-name,Values=running" \
-              --query "Reservations[*].Instances[*].[InstanceId,Tags[?Key=='Name']|[0].Value]" \
-              --output text)
-            
-            echo "🔍 All running instances:"
-            echo "$ALL_RUNNING"
-            
-            # Filter instances that have the environment in their name
-            INSTANCE_IDS=$(echo "$ALL_RUNNING" | grep -i "${ENV_NAME}" | awk '{print $1}' | tr '\n' ' ')
-            
-            if [[ -n "$INSTANCE_IDS" && "$INSTANCE_IDS" != " " ]]; then
-              echo "✅ Found instances by name pattern: $INSTANCE_IDS"
-            fi
-          fi
-          
-          if [[ -z "$INSTANCE_IDS" || "$INSTANCE_IDS" == " " ]]; then
-            echo "❌ No running EC2 instances found for environment: ${ENV_NAME}"
-            echo "🔍 Available running instances:"
-            
-            aws ec2 describe-instances \
-              --filters "Name=instance-state-name,Values=running" \
-              --query "Reservations[*].Instances[*].[InstanceId,Tags[?Key=='Name']|[0].Value,Tags[?Key=='Environment']|[0].Value]" \
-              --output table
-            
-            echo ""
-            echo "💡 To fix this, either:"
-            echo "   1. Add an 'Environment' tag with value '${ENV_NAME}' to your EC2 instance"
-            echo "   2. Or ensure your instance name contains '${ENV_NAME}' (like 'Sun-${ENV_NAME}')"
-            exit 1
-          fi
-          
-          echo "✅ Found target instances: $INSTANCE_IDS"
-          echo "instance_ids=$INSTANCE_IDS" >> $GITHUB_OUTPUT
-          
-          # Get instance details
-          for ID in $INSTANCE_IDS; do
-            INSTANCE_INFO=$(aws ec2 describe-instances \
-              --instance-ids $ID \
-              --query "Reservations[0].Instances[0].[InstanceId,Tags[?Key=='Name']|[0].Value,PrivateIpAddress,State.Name]" \
-              --output text)
-            echo "📋 Instance: $INSTANCE_INFO"
-          done
-
-      - name: Deploy to EC2 instances
-        if: steps.check-changes.outputs.should_deploy == 'true'
-        id: deploy
-        run: |
-          ENV_NAME="${{ steps.env-map.outputs.env_name }}"
-          INSTANCE_IDS="${{ steps.find-instances.outputs.instance_ids }}"
-          
-          echo "🚀 Deploying to instances: $INSTANCE_IDS"
-          
-          # Database secrets (if available)
-          DB_HOST="${{ secrets.DB_HOST }}"
-          DB_USER="${{ secrets.DB_USER }}"
-          DB_PASS="${{ secrets.DB_PASS }}"
-          DB_NAME="${{ secrets.DB_NAME }}"
-          
-          DEPLOYMENT_SUCCESS=true
-          
-          for ID in $INSTANCE_IDS; do
-            echo ""
-            echo "📡 Deploying to instance: $ID"
-            
-            # Create SSM command with environment variables
-            COMMAND_ID=$(aws ssm send-command \
-              --document-name "AWS-RunShellScript" \
-              --comment "Deploy Node.js to $ID (Environment: $ENV_NAME)" \
-              --instance-ids "$ID" \
-              --parameters '{
-                "commands": [
-                  "echo \"📥 Starting deployment for environment: '${ENV_NAME}'\"",
-                  "export DB_HOST=\"'${DB_HOST}'\"",
-                  "export DB_USER=\"'${DB_USER}'\"",
-                  "export DB_PASS=\"'${DB_PASS}'\"",
-                  "export DB_NAME=\"'${DB_NAME}'\"",
-                  "export ENVIRONMENT=\"'${ENV_NAME}'\"",
-                  "echo \"🔧 Environment variables set\"",
-                  "echo \"📥 Downloading deployment script...\"",
-                  "aws s3 cp s3://'${{ env.S3_BUCKET }}'/nodejs/'${ENV_NAME}'/node-deploy.sh /home/ec2-user/node-deploy.sh",
-                  "chmod +x /home/ec2-user/node-deploy.sh",
-                  "echo \"🚀 Executing deployment script...\"",
-                  "sudo -E bash /home/ec2-user/node-deploy.sh 2>&1 | tee /tmp/deployment-$(date +%Y%m%d-%H%M%S).log",
-                  "echo \"✅ Deployment completed for instance: $ID\""
-                ]
-              }' \
-              --region ${{ env.AWS_REGION }} \
-              --output text \
-              --query "Command.CommandId")
-            
-            if [[ -n "$COMMAND_ID" ]]; then
-              echo "✅ Command sent successfully. Command ID: $COMMAND_ID"
-              
-              # Wait for command completion (with timeout)
-              echo "⏳ Waiting for deployment to complete..."
-              TIMEOUT=300 # 5 minutes
-              ELAPSED=0
-              
-              while [[ $ELAPSED -lt $TIMEOUT ]]; do
-                STATUS=$(aws ssm get-command-invocation \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id "$ID" \
-                  --region ${{ env.AWS_REGION }} \
-                  --query "Status" \
-                  --output text 2>/dev/null || echo "Pending")
-                
-                if [[ "$STATUS" == "Success" ]]; then
-                  echo "✅ Deployment successful on instance: $ID"
-                  break
-                elif [[ "$STATUS" == "Failed" ]]; then
-                  echo "❌ Deployment failed on instance: $ID"
-                  
-                  # Get error details
-                  aws ssm get-command-invocation \
-                    --command-id "$COMMAND_ID" \
-                    --instance-id "$ID" \
-                    --region ${{ env.AWS_REGION }} \
-                    --query "StandardErrorContent" \
-                    --output text
-                  
-                  DEPLOYMENT_SUCCESS=false
-                  break
-                elif [[ "$STATUS" == "InProgress" ]]; then
-                  echo "⏳ Deployment in progress..."
-                  sleep 15
-                  ELAPSED=$((ELAPSED + 15))
-                else
-                  echo "⏳ Status: $STATUS, waiting..."
-                  sleep 10
-                  ELAPSED=$((ELAPSED + 10))
-                fi
-              done
-              
-              if [[ $ELAPSED -ge $TIMEOUT ]]; then
-                echo "⏰ Deployment timed out for instance: $ID"
-                DEPLOYMENT_SUCCESS=false
-              fi
-            else
-              echo "❌ Failed to send command to instance: $ID"
-              DEPLOYMENT_SUCCESS=false
-            fi
-          done
-          
-          if [[ "$DEPLOYMENT_SUCCESS" == "false" ]]; then
-            echo "❌ One or more deployments failed"
-            exit 1
-          fi
-          
-          echo "🎉 All deployments completed successfully!"
-
-      - name: Verify deployment
-        if: steps.check-changes.outputs.should_deploy == 'true' && steps.deploy.outcome == 'success'
-        run: |
-          ENV_NAME="${{ steps.env-map.outputs.env_name }}"
-          INSTANCE_IDS="${{ steps.find-instances.outputs.instance_ids }}"
-          
-          echo "🔍 Verifying deployment on instances..."
-          
-          for ID in $INSTANCE_IDS; do
-            echo "🧪 Testing instance: $ID"
-            
-            # Get instance private IP
-            PRIVATE_IP=$(aws ec2 describe-instances \
-              --instance-ids $ID \
-              --query "Reservations[0].Instances[0].PrivateIpAddress" \
-              --output text)
-            
-            echo "📡 Private IP: $PRIVATE_IP"
-            
-            # Check if application is responding (this would need to be run from within VPC)
-            # For now, just verify that the deployment command completed successfully
-            echo "✅ Deployment verification completed for instance: $ID"
-          done
-
-      - name: Clean up
-        if: always()
-        run: |
-          echo "🧹 Cleaning up local files..."
-          rm -f nodejs-app.zip
-
-      - name: Deployment summary
-        if: always()
-        run: |
-          echo ""
-          echo "📊 Deployment Summary"
-          echo "===================="
-          echo "Environment: ${{ steps.env-map.outputs.env_name }}"
-          echo "Should Deploy: ${{ steps.check-changes.outputs.should_deploy }}"
-          echo "Target Instances: ${{ steps.find-instances.outputs.instance_ids }}"
-          echo "Deployment Status: ${{ steps.deploy.outcome }}"
-          echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-          
-          if [[ "${{ steps.check-changes.outputs.should_deploy }}" == "false" ]]; then
-            echo ""
-            echo "ℹ️ No deployment was triggered due to no changes detected."
-            echo "Use 'force_deployment: true' in workflow_dispatch to override."
-          fi
