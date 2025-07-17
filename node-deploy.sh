@@ -299,6 +299,8 @@ if [ -n "$EXISTING_PID" ]; then
   fi
 fi
 
+echo "💀 Killing PM2 completely to release all app/process state..."
+pm2 kill
 
 echo "🚀 Starting new nodejs-app..."
 echo "🚦 Checking port 3000 availability before PM2 start..."
