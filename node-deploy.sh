@@ -36,6 +36,10 @@ echo "🔍 Checking EFS mount status..."
 df -h -t nfs4 | grep -E "(amazonaws|efs)" || echo "No EFS mounts found"
 mount | grep -E "/mnt/efs/(code|logs|org)" || echo "⚠️ EFS mounts not currently listed"
 
+echo "🧨 Killing all orphaned Node.js processes (if any)..."
+sudo pkill -9 node || true
+
+
 # === Enhanced EFS Mount Detection ===
 EFS_CODE_MOUNTED=false
 EFS_LOGS_MOUNTED=false
@@ -149,6 +153,11 @@ echo "📝 Log path set to: ${NODE_APP_LOG_PATH}"
 echo "📥 Downloading application from S3..."
 aws s3 cp s3://${S3_BUCKET}/${S3_KEY} ${APP_DIR}/nodejs-app.zip
 
+
+echo "🧹 Cleaning up previous temp directory (if any)..."
+sudo rm -rf ${TEMP_DIR}
+
+
 echo "📦 Extracting application..."
 unzip -o ${APP_DIR}/nodejs-app.zip -d ${TEMP_DIR}
 
@@ -177,6 +186,12 @@ fi
 echo "📦 Installing npm dependencies..."
 npm install
 npm install dotenv compression ws mysql2 @faker-js/faker response-time @aws-sdk/client-cloudwatch-logs
+
+if [ $? -ne 0 ]; then
+  echo "❌ npm install failed. Showing last 50 log lines:"
+  tail -n 50 ${NODE_APP_LOG_PATH}
+  exit 1
+fi
 
 # Verify critical packages
 if [ -d "node_modules/@aws-sdk/client-cloudwatch-logs" ]; then
