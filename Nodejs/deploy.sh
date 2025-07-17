@@ -43,20 +43,12 @@ for ID in $INSTANCE_IDS; do
   echo "📡 Deploying to instance: $ID"
 
   aws ssm send-command \
-    --document-name "AWS-RunShellScript" \
-    --comment "Deploy Node.js to $ID" \
-    --instance-ids "$ID" \
-    --parameters commands=[
-      "echo '📥 Downloading node-deploy.sh from S3...'",
-      "aws s3 cp s3://${S3_BUCKET}/${S3_BASE_KEY}/node-deploy.sh /home/ec2-user/node-deploy.sh",
-      "echo '📁 Verifying node-deploy.sh presence:'",
-      "ls -l /home/ec2-user/node-deploy.sh || echo '❌ node-deploy.sh not found after copy'",
-      "chmod +x /home/ec2-user/node-deploy.sh",
-      "echo '🚀 Executing node-deploy.sh for environment: ${ENV}'",
-      "sudo bash /home/ec2-user/node-deploy.sh ${ENV}"
-    ] \
-    --region us-east-2 \
-    --output json
+  --document-name "AWS-RunShellScript" \
+  --comment "Deploy Node.js to $ID" \
+  --instance-ids "$ID" \
+  --parameters '{"commands":["echo 📥 Downloading node-deploy.sh from S3...","aws s3 cp s3://'${S3_BUCKET}'/'${S3_BASE_KEY}'/node-deploy.sh /home/ec2-user/node-deploy.sh","ls -l /home/ec2-user/node-deploy.sh || echo ❌ node-deploy.sh not found after copy","chmod +x /home/ec2-user/node-deploy.sh","echo 🚀 Executing node-deploy.sh for environment: '${ENV}'","sudo bash /home/ec2-user/node-deploy.sh '${ENV}'"]}' \
+  --region us-east-2 \
+  --output json
 done
 
 echo ""
