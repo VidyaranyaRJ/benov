@@ -54,5 +54,5 @@ jobs:
           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
         run: |
           echo "Deploying $MODULE to environment $ENVIRONMENT"
-          bash /deploy.sh $ENVIRONMENT
+          bash deploy.sh $ENVIRONMENT
 
