@@ -239,16 +239,17 @@ if [ -f ".env" ]; then
   set +a
 fi
 
-# Start/Restart application
+echo "🔁 Restarting PM2 app cleanly..."
 if pm2 describe nodejs-app >/dev/null 2>&1; then
-  echo "🔄 Reloading existing nodejs-app..."
-  pm2 reload nodejs-app
-else
-  echo "🆕 Starting new nodejs-app..."
-  pm2 start app.js --name nodejs-app --log ${NODE_APP_LOG_PATH}
+  echo "🧹 Stopping previous nodejs-app..."
+  pm2 delete nodejs-app || true
 fi
 
+echo "🚀 Starting new nodejs-app..."
+pm2 start app.js --name nodejs-app --log ${NODE_APP_LOG_PATH}
 pm2 save
+
+
 
 # === PM2 Startup Configuration ===
 echo "🔧 Configuring PM2 auto-start..."
