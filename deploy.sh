@@ -66,38 +66,36 @@ for INSTANCE_ID in $INSTANCE_IDS; do
   echo "🚀 Deploying to $INSTANCE_ID..."
 
   aws ssm send-command \
-    --region $AWS_REGION \
-    --document-name "AWS-RunShellScript" \
-    --comment "Deploy Node.js App via SSM" \
-    --instance-ids "$INSTANCE_ID" \
-    --parameters 'commands=[
-      "echo ✅ [1/7] Downloading app ZIP from S3...",
-      "aws s3 cp s3://'"$S3_BUCKET"'/'"$S3_ZIP_PATH"' /tmp/'"$ZIP_NAME"' --region '"$AWS_REGION"'",
+  --region $AWS_REGION \
+  --document-name "AWS-RunShellScript" \
+  --comment "Deploy Node.js App via SSM" \
+  --instance-ids "$INSTANCE_ID" \
+  --parameters commands="$(cat <<EOF
+[
+  "echo '✅ [1/7] Downloading app ZIP from S3...'",
+  "aws s3 cp s3://$S3_BUCKET/$S3_ZIP_PATH /tmp/$ZIP_NAME --region $AWS_REGION",
 
-      "echo ✅ [2/7] Unzipping to /mnt/efs/code/app...",
-      "sudo rm -rf /mnt/efs/code/app",
-      "mkdir -p /mnt/efs/code/app",
-      "unzip -o /tmp/'"$ZIP_NAME"' -d /mnt/efs/code/app",
+  "echo '✅ [2/7] Unzipping to /mnt/efs/code/app...'",
+  "sudo rm -rf /mnt/efs/code/app",
+  "mkdir -p /mnt/efs/code/app",
+  "unzip -o /tmp/$ZIP_NAME -d /mnt/efs/code/app",
 
-      "echo ✅ [3/7] Comparing GitHub + EFS source checksum...",
-      "cd /mnt/efs/code/app/Nodejs && find . -type f ! -name node_modules -exec md5sum {} + | sort > /tmp/efs-sum.txt",
-      "cd ~ && git clone --depth 1 '"$GITHUB_REPO"' benov-repo",
-      "cd benov-repo/Nodejs && find . -type f ! -name node_modules -exec md5sum {} + | sort > /tmp/github-sum.txt",
-      "diff -q /tmp/github-sum.txt /tmp/efs-sum.txt && echo '✅ EFS and GitHub code match' || echo '⚠️ WARNING: EFS code differs from GitHub'",
+  "echo '✅ [3/7] Running node-deploy.sh...'",
+  "chmod +x /mnt/efs/code/app/node-deploy.sh",
+  "bash /mnt/efs/code/app/node-deploy.sh",
 
-      "echo ✅ [4/7] Running node-deploy.sh...",
-      "chmod +x /mnt/efs/code/app/node-deploy.sh",
-      "bash /mnt/efs/code/app/node-deploy.sh",
+  "echo '✅ [4/7] Checking PM2 process...'",
+  "pm2 list | grep nodejs-app || echo '⚠️ nodejs-app not running via PM2'",
 
-      "echo ✅ [5/7] Validating PM2 state...",
-      "pm2 list | grep nodejs-app && echo '✅ nodejs-app is online' || echo '❌ nodejs-app not running'",
+  "echo '✅ [5/7] Checking if port 3000 is open...'",
+  "lsof -i:3000 || echo '✅ Port 3000 is free'",
 
-      "echo ✅ [6/7] Checking port 3000...",
-      "lsof -i:3000 || echo '✅ Port 3000 is free'",
+  "echo '✅ [6/7] Done deployment on $INSTANCE_ID'"
+]
+EOF
+)" \
+  --output text
 
-      "echo ✅ [7/7] Deployment completed for '"$INSTANCE_ID"'"
-    ]' \
-    --output text
 done
 
 echo ""
