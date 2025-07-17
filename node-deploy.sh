@@ -285,7 +285,6 @@ if [ -n "$EXISTING_PID" ]; then
 fi
 
 
-
 echo "🚀 Starting new nodejs-app..."
 echo "🚦 Checking port 3000 availability before PM2 start..."
 sudo lsof -i:3000 || echo "✅ Port 3000 is free"
