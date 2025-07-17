@@ -248,13 +248,58 @@ fi
 # Kill any process already on port 3000
 EXISTING_PID=$(sudo lsof -t -i:3000 || true)
 if [ -n "$EXISTING_PID" ]; then
-  echo "🛑 Port 3000 is already in use by PID $EXISTING_PID — killing it"
+  echo "🛑 Port 3000 is already in use by PID $EXISTING_PID — killing it..."
   sudo kill -9 $EXISTING_PID
+  sleep 2
+
+  # Verify it's actually dead
+  for i in {1..5}; do
+    if sudo lsof -i:3000 >/dev/null 2>&1; then
+      echo "⏳ Port 3000 still in use... waiting..."
+      sleep 2
+    else
+      echo "✅ Port 3000 is now free"
+      break
+    fi
+  done
+
+  if sudo lsof -i:3000 >/dev/null 2>&1; then
+    echo "❌ Port 3000 is still in use — exiting"
+    exit 1
+  fi
 fi
 
+
+
 echo "🚀 Starting new nodejs-app..."
+echo "🚦 Checking port 3000 availability before PM2 start..."
+sudo lsof -i:3000 || echo "✅ Port 3000 is free"
+
 pm2 start app.js --name nodejs-app --log ${NODE_APP_LOG_PATH}
+
+echo "🔍 Verifying if nodejs-app started correctly with PM2..."
+
+PM2_STATUS=$(pm2 info nodejs-app | grep status | awk '{print $4}')
+if [ "$PM2_STATUS" != "online" ]; then
+  echo "❌ PM2 status is '$PM2_STATUS' — app failed to start"
+  
+  echo "🔎 Checking if port 3000 is in use:"
+  sudo lsof -i :3000 || echo "✅ Port 3000 is free"
+
+  echo "📋 Last 50 lines of app log for crash details:"
+  tail -n 50 ${NODE_APP_LOG_PATH}
+  
+  echo "❗ Exiting due to failed startup"
+  exit 1
+else
+  echo "✅ nodejs-app is online according to PM2"
+fi
+
+
+
 pm2 save
+
+
 
 
 
@@ -331,6 +376,12 @@ echo "  - Check logs: pm2 logs nodejs-app"
 echo "  - Check status: pm2 status"
 echo "  - Restart app: pm2 restart nodejs-app"
 echo "  - EFS status: df -h -t nfs4"
+
+if ! pm2 list | grep -q "nodejs-app.*online"; then
+  echo "❌ PM2 reports nodejs-app is not online — showing logs:"
+  pm2 logs nodejs-app --lines 50
+  exit 1
+fi
 
 # Show final PM2 status
 pm2 list
