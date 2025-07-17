@@ -245,6 +245,13 @@ if pm2 describe nodejs-app >/dev/null 2>&1; then
   pm2 delete nodejs-app || true
 fi
 
+# Kill any process already on port 3000
+EXISTING_PID=$(sudo lsof -t -i:3000 || true)
+if [ -n "$EXISTING_PID" ]; then
+  echo "🛑 Port 3000 is already in use by PID $EXISTING_PID — killing it"
+  sudo kill -9 $EXISTING_PID
+fi
+
 echo "🚀 Starting new nodejs-app..."
 pm2 start app.js --name nodejs-app --log ${NODE_APP_LOG_PATH}
 pm2 save
