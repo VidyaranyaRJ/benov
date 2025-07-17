@@ -16,7 +16,7 @@ on:
 env:
   AWS_REGION: us-east-2
   S3_BUCKET: vj-test-benvolate
-  MODULE: nodejs
+  MODULE: Nodejs
 
 jobs:
   deploy:
