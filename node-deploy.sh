@@ -240,6 +240,21 @@ if [ -f ".env" ]; then
 fi
 
 echo "🔁 Restarting PM2 app cleanly..."
+# Stop and delete any existing PM2 app with the same name
+if pm2 describe nodejs-app >/dev/null 2>&1; then
+  echo "🧹 Stopping and deleting previous PM2 app: nodejs-app"
+  pm2 stop nodejs-app || true
+  pm2 delete nodejs-app || true
+fi
+
+# Kill any node process manually running on port 3000 (if not managed by PM2)
+EXISTING_PID=$(sudo lsof -t -i:3000 || true)
+if [ -n "$EXISTING_PID" ]; then
+  echo "🛑 Port 3000 is in use by PID $EXISTING_PID — killing it"
+  sudo kill -9 "$EXISTING_PID"
+fi
+
+
 if pm2 describe nodejs-app >/dev/null 2>&1; then
   echo "🧹 Stopping previous nodejs-app..."
   pm2 delete nodejs-app || true
