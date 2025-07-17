@@ -43,10 +43,10 @@ jobs:
           fi
 
       - name: Zip and upload Node.js app to S3
-        working-directory: ./Nodejs
         run: |
-          zip -r nodejs-app.zip . -x ".git/*"
+          zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
+
 
       - name: Run deploy.sh for ${{ env.MODULE }}
         env:
