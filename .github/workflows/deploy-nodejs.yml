@@ -73,7 +73,7 @@ jobs:
             exit 1
           fi
 
-          echo "EC2_INSTANCE_IPS=$INSTANCE_IPS" >> $GITHUB_ENV
+          echo "EC2_INSTANCE_IPS=\"$INSTANCE_IPS\"" >> $GITHUB_ENV
 
       - name: Rsync changed files to EC2s (no delete)
         run: |
