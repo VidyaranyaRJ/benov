@@ -63,7 +63,6 @@ for INSTANCE_ID in $EC2_INSTANCE_IDS; do
       "echo ✅ [1/6] Downloading app ZIP from S3...",
       "aws s3 cp s3://'${S3_BUCKET}'/'${S3_KEY}' /tmp/nodejs-app.zip --region us-east-2",
 
-
       "echo ✅ [2/6] Extracting to /mnt/efs/code/Nodejs...",
       "sudo rm -rf /mnt/efs/code/Nodejs",
       "mkdir -p /mnt/efs/code/Nodejs",
