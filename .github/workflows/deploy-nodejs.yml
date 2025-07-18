@@ -15,6 +15,8 @@ on:
 env:
   DEPLOY_PATH: /mnt/efs/code/nodejs-app
   AWS_REGION: us-east-2
+  APP_NAME: nodejs-app
+  APP_PORT: 3000
 
 jobs:
   deploy:
@@ -38,7 +40,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip curl
+          sudo apt-get install -y unzip curl rsync
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -o awscliv2.zip
           sudo ./aws/install --update
@@ -61,7 +63,6 @@ jobs:
         run: |
           echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
           
-          # Get instances in JSON format for better parsing
           INSTANCES_JSON=$(aws ec2 describe-instances \
             --region "$AWS_REGION" \
             --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
@@ -72,34 +73,23 @@ jobs:
           echo "Raw JSON output:"
           echo "$INSTANCES_JSON"
           
-          # Extract public IPs, filtering out null values
           PUBLIC_IPS=$(echo "$INSTANCES_JSON" | jq -r '.[][] | select(.[1] != null) | .[1]' | tr '\n' ' ')
           
           if [[ -z "$PUBLIC_IPS" || "$PUBLIC_IPS" == " " ]]; then
             echo "❌ No running EC2 instances with public IPs found for environment: $ENVIRONMENT"
-            echo "Available instances:"
-            echo "$INSTANCES_JSON" | jq -r '.[][] | "\(.[0]) - \(.[2] // "No Name") - Public IP: \(.[1] // "None")"'
             exit 1
           fi
           
-          # Clean up the IPs string
           PUBLIC_IPS=$(echo "$PUBLIC_IPS" | xargs)
-          
           echo "EC2_INSTANCE_IPS=$PUBLIC_IPS" >> "$GITHUB_ENV"
           echo "📋 Found instances with public IPs: $PUBLIC_IPS"
-          
-          # Count instances
-          IP_COUNT=$(echo "$PUBLIC_IPS" | wc -w)
-          echo "📊 Total instances: $IP_COUNT"
 
       - name: Test SSH connectivity
         run: |
           echo "🔧 Testing SSH connectivity..."
           SUCCESS_COUNT=0
-          TOTAL_COUNT=0
           
           for ip in $EC2_INSTANCE_IPS; do
-            TOTAL_COUNT=$((TOTAL_COUNT + 1))
             echo "Testing SSH to $ip..."
             
             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o BatchMode=yes ec2-user@$ip "echo 'Connected to $ip'" 2>/dev/null; then
@@ -107,19 +97,12 @@ jobs:
               SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
               echo "❌ SSH connection failed to $ip"
-              echo "Retrying with verbose output..."
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=15 -vvv ec2-user@$ip "echo 'test'" 2>&1 | head -20
             fi
           done
           
           if [[ $SUCCESS_COUNT -eq 0 ]]; then
             echo "❌ No SSH connections successful. Aborting deployment."
             exit 1
-          elif [[ $SUCCESS_COUNT -lt $TOTAL_COUNT ]]; then
-            echo "⚠️  Only $SUCCESS_COUNT out of $TOTAL_COUNT instances accessible via SSH"
-            echo "Continuing with accessible instances..."
-          else
-            echo "✅ All $TOTAL_COUNT instances accessible via SSH"
           fi
 
       - name: Deploy application files
@@ -130,13 +113,12 @@ jobs:
           for ip in $EC2_INSTANCE_IPS; do
             echo "📁 Deploying to $ip..."
             
-            # Test SSH first
             if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
               echo "❌ Skipping $ip - SSH not accessible"
               continue
             fi
             
-            # Create deployment directory if it doesn't exist
+            # Create deployment directory
             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "sudo mkdir -p $DEPLOY_PATH && sudo chown ec2-user:ec2-user $DEPLOY_PATH"
             
             # Sync files
@@ -157,98 +139,150 @@ jobs:
           if [[ $SUCCESS_COUNT -eq 0 ]]; then
             echo "❌ No deployments successful"
             exit 1
-          else
-            echo "✅ Deployed successfully to $SUCCESS_COUNT instances"
           fi
 
-      - name: Restart application services
+      - name: Install Node.js dependencies
         run: |
-          echo "🔄 Restarting application services..."
-          RESTART_SUCCESS=0
-          RESTART_TOTAL=0
+          echo "📦 Installing Node.js dependencies..."
           
           for ip in $EC2_INSTANCE_IPS; do
-            echo "🚀 Restarting services on $ip..."
-            RESTART_TOTAL=$((RESTART_TOTAL + 1))
-            
-            # Test SSH first
-            if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
-              echo "❌ Skipping $ip - SSH not accessible"
-              continue
-            fi
-            
-            # Check if PM2 script exists and run it
-            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "test -f $DEPLOY_PATH/scripts/pm2-reset-restart.sh"; then
-              echo "📋 Running PM2 reset script on $ip..."
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "📦 Installing dependencies on $ip..."
               
-              # Run the PM2 script and capture its exit code
-              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && bash scripts/pm2-reset-restart.sh"; then
-                echo "✅ PM2 restart completed successfully for $ip"
-                RESTART_SUCCESS=$((RESTART_SUCCESS + 1))
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+                cd $DEPLOY_PATH && 
+                if [ -f package.json ]; then
+                  echo '📋 Installing npm dependencies...'
+                  npm install --production
+                else
+                  echo '⚠️  No package.json found'
+                fi
+              "
+            fi
+          done
+
+      - name: Stop existing applications
+        run: |
+          echo "🛑 Stopping existing applications..."
+          
+          for ip in $EC2_INSTANCE_IPS; do
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "🛑 Stopping applications on $ip..."
+              
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+                # Kill any processes on port $APP_PORT
+                if lsof -Pi :$APP_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+                  echo '🔍 Found processes on port $APP_PORT, killing them...'
+                  lsof -ti:$APP_PORT | xargs kill -9 2>/dev/null || true
+                  sleep 2
+                fi
+                
+                # Stop PM2 processes if any
+                if command -v pm2 &> /dev/null; then
+                  pm2 stop all 2>/dev/null || true
+                  pm2 delete all 2>/dev/null || true
+                fi
+                
+                echo '✅ No orphan process found on port $APP_PORT.'
+              "
+            fi
+          done
+
+      - name: Start applications
+        run: |
+          echo "🚀 Starting applications..."
+          START_SUCCESS=0
+          
+          for ip in $EC2_INSTANCE_IPS; do
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "🚀 Starting application on $ip..."
+              
+              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+                cd $DEPLOY_PATH
+                echo '📁 Now in \$(pwd)'
+                
+                # Check if PM2 is installed
+                if ! command -v pm2 &> /dev/null; then
+                  echo '❌ PM2 is not installed'
+                  exit 1
+                fi
+                
+                # Start the application
+                if [ -f ecosystem.config.js ]; then
+                  echo '📋 Starting with ecosystem.config.js'
+                  pm2 start ecosystem.config.js
+                elif [ -f app.js ]; then
+                  echo '📋 Starting app.js'
+                  pm2 start app.js --name $APP_NAME
+                else
+                  echo '❌ No application file found'
+                  exit 1
+                fi
+                
+                # Wait for startup
+                sleep 5
+                
+                # Verify the application
+                pm2 list
+                
+                if pm2 describe $APP_NAME | grep -q 'online'; then
+                  echo '✅ Application is online'
+                else
+                  echo '❌ Application is not online'
+                  pm2 logs $APP_NAME --lines 10
+                  exit 1
+                fi
+                
+                # Check port
+                if lsof -Pi :$APP_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+                  echo '✅ Application is listening on port $APP_PORT'
+                else
+                  echo '❌ Application is not listening on port $APP_PORT'
+                  exit 1
+                fi
+                
+                # Save PM2 configuration
+                pm2 save
+                
+                echo '✅ Application started successfully'
+              "; then
+                echo "✅ Application started successfully on $ip"
+                START_SUCCESS=$((START_SUCCESS + 1))
               else
-                SCRIPT_EXIT_CODE=$?
-                echo "❌ PM2 restart script failed for $ip with exit code: $SCRIPT_EXIT_CODE"
-                echo "🔍 Checking PM2 status..."
-                ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "pm2 list" || echo "Could not get PM2 status"
-                echo "🔍 Checking if app is running manually..."
-                ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "ps aux | grep node" || echo "No node processes found"
-              fi
-            else
-              echo "⚠️  PM2 script not found on $ip, attempting manual restart..."
-              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && (pm2 restart all || pm2 start ecosystem.config.js || pm2 start app.js --name nodejs-app)"; then
-                echo "✅ Manual restart completed for $ip"
-                RESTART_SUCCESS=$((RESTART_SUCCESS + 1))
-              else
-                echo "❌ Manual restart failed for $ip"
+                echo "❌ Application start failed on $ip"
               fi
             fi
           done
           
-          echo "📊 Restart Summary: $RESTART_SUCCESS/$RESTART_TOTAL instances restarted successfully"
-          
-          # Don't fail the workflow if at least one instance was restarted successfully
-          if [[ $RESTART_SUCCESS -gt 0 ]]; then
-            echo "✅ At least one instance restarted successfully"
-          else
-            echo "❌ No instances restarted successfully"
+          if [[ $START_SUCCESS -eq 0 ]]; then
+            echo "❌ No applications started successfully"
             exit 1
+          else
+            echo "✅ Applications started successfully on $START_SUCCESS instances"
           fi
 
       - name: Verify deployment
         run: |
           echo "🔍 Verifying deployment..."
-          VERIFY_SUCCESS=0
           
           for ip in $EC2_INSTANCE_IPS; do
-            echo "Checking $ip..."
-            
-            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip "pm2 list" 2>/dev/null; then
-              echo "✅ PM2 processes verified on $ip"
-              VERIFY_SUCCESS=$((VERIFY_SUCCESS + 1))
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "🔍 Verifying $ip..."
               
-              # Check if the app is actually running
-              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "pm2 list | grep -q 'online'"; then
-                echo "✅ Application is running on $ip"
-              else
-                echo "⚠️  PM2 is running but no online processes on $ip"
-              fi
-              
-              # Check if port 3000 is listening
-              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "netstat -tlnp | grep ':3000 ' || ss -tlnp | grep ':3000 '"; then
-                echo "✅ Port 3000 is listening on $ip"
-              else
-                echo "⚠️  Port 3000 is not listening on $ip"
-              fi
-            else
-              echo "⚠️  Could not verify PM2 status on $ip"
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+                echo '📊 PM2 Status:'
+                pm2 list
+                
+                echo '📊 Port Status:'
+                netstat -tlnp | grep ':$APP_PORT ' || ss -tlnp | grep ':$APP_PORT ' || echo 'Port not found'
+                
+                echo '📊 Application Info:'
+                pm2 info $APP_NAME 2>/dev/null || echo 'Could not get app info'
+              "
             fi
           done
           
-          echo "📊 Deployment Summary:"
-          echo "- Files deployed successfully to all instances"
-          echo "- PM2 restart attempted on all instances"
-          echo "- Verification completed for $VERIFY_SUCCESS instances"
-          echo "✅ Deployment process completed"
+          echo "✅ Deployment verification completed"
 
       - name: Cleanup
         if: always()
