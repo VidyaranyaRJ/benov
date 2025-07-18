@@ -1,3 +1,64 @@
+# name: Node.js App Deployment
+
+# on:
+#   push:
+#     branches:
+#       - dev
+#       - uat
+#       - main
+#   workflow_dispatch:
+#     inputs:
+#       environment:
+#         description: "Environment to deploy (dev, uat, prod)"
+#         required: true
+#         default: dev
+
+# env:
+#   AWS_REGION: us-east-2
+#   S3_BUCKET: vj-test-benvolate
+#   MODULE: Nodejs
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v4
+
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Determine environment name
+#         id: env-map
+#         run: |
+#           if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+#             echo "env_name=prod" >> $GITHUB_OUTPUT
+#           else
+#             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+#           fi
+
+#       - name: Zip and upload Node.js app to S3
+#         run: |
+#           # Create ZIP with the Nodejs folder structure intact
+#           # This maintains the folder structure that your deployment script expects
+#           zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
+#           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
+
+#       - name: Run deploy.sh for ${{ env.MODULE }}
+#         env:
+#           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
+#         run: |
+#           echo "Deploying $MODULE to environment $ENVIRONMENT"
+#           bash deploy.sh $ENVIRONMENT
+
+
+
+
 name: Node.js App Deployment
 
 on:
@@ -44,15 +105,35 @@ jobs:
 
       - name: Zip and upload Node.js app to S3
         run: |
-          # Create ZIP with the Nodejs folder structure intact
-          # This maintains the folder structure that your deployment script expects
-          zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
-          aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
+          ENV=${{ steps.env-map.outputs.env_name }}
+          echo "📦 Zipping Nodejs/ folder..."
+          echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
+          zip -r nodejs-app.zip Nodejs
 
-      - name: Run deploy.sh for ${{ env.MODULE }}
+          echo "☁️ Uploading nodejs-app.zip to S3..."
+          aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/nodejs-app.zip --region ${{ env.AWS_REGION }}
+
+          echo "☁️ Uploading node-deploy.sh to S3..."
+          aws s3 cp node-deploy.sh s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/node-deploy.sh --region ${{ env.AWS_REGION }}
+
+      - name: Trigger EC2 deployment
         env:
           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
         run: |
-          echo "Deploying $MODULE to environment $ENVIRONMENT"
+          echo "Deploying Nodejs to environment $ENVIRONMENT"
           bash deploy.sh $ENVIRONMENT
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
