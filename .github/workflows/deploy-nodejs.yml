@@ -86,8 +86,13 @@ jobs:
           
           echo "☁️ Uploading deployment script to ${S3_PATH}/"
           aws s3 cp deploy.sh ${S3_PATH}/deploy.sh --region $AWS_REGION
+
+          echo "☁️ Uploading PM2 reset script to S3..."
+          aws s3 cp Nodejs/scripts/pm2-reset-restart.sh s3://${S3_BUCKET}/scripts/pm2-reset-restart.sh --region $AWS_REGION
           
           echo "✅ Files uploaded successfully"
+
+          
 
       - name: Trigger EC2 deployment
         run: |

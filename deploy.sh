@@ -131,6 +131,29 @@ for INSTANCE_ID in $EC2_INSTANCE_IDS; do
   echo "📤 Deployment command sent to $INSTANCE_ID: $COMMAND_ID"
 done
 
+
+# === [5b/8] Run PM2 reset script after initial PM2 start ===
+echo "✅ [5b/8] Running PM2 reset script to ensure clean process..."
+
+for INSTANCE_ID in $EC2_INSTANCE_IDS; do
+  echo "📤 Executing pm2-reset-restart.sh on $INSTANCE_ID..."
+  
+  aws ssm send-command \
+    --document-name "AWS-RunShellScript" \
+    --instance-ids "$INSTANCE_ID" \
+    --region us-east-2 \
+    --comment "Run PM2 reset script" \
+    --parameters 'commands=[
+      "aws s3 cp s3://'${S3_BUCKET}'/scripts/pm2-reset-restart.sh /tmp/pm2-reset-restart.sh --region us-east-2",
+      "chmod +x /tmp/pm2-reset-restart.sh",
+      "sudo bash /tmp/pm2-reset-restart.sh"
+    ]' \
+    --output text > /dev/null
+
+  echo "✅ PM2 reset triggered on $INSTANCE_ID"
+done
+
+
 # === [6/8] Wait for deployment completion ===
 echo "✅ [6/8] Waiting for deployment completion..."
 sleep 15
