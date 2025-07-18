@@ -103,18 +103,20 @@ jobs:
             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Zip and upload Node.js app to S3
+      - name: Zip and upload Node.js app to S3 (with deploy script)
         run: |
           ENV=${{ steps.env-map.outputs.env_name }}
           echo "📦 Zipping Nodejs/ folder..."
+
+          # Add metadata and node-deploy.sh to Nodejs folder
           echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
+          cp node-deploy.sh Nodejs/
+
           (cd Nodejs && zip -r ../nodejs-app.zip .)
+          rm Nodejs/node-deploy.sh  # Optional cleanup
 
           echo "☁️ Uploading nodejs-app.zip to S3..."
           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/nodejs-app.zip --region ${{ env.AWS_REGION }}
-
-          echo "☁️ Uploading node-deploy.sh to S3..."
-          aws s3 cp node-deploy.sh s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/node-deploy.sh --region ${{ env.AWS_REGION }}
 
       - name: Trigger EC2 deployment
         env:
@@ -122,6 +124,7 @@ jobs:
         run: |
           echo "Deploying Nodejs to environment $ENVIRONMENT"
           bash deploy.sh $ENVIRONMENT
+
 
 
 
