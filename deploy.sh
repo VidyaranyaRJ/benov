@@ -63,13 +63,13 @@ for INSTANCE_ID in $EC2_INSTANCE_IDS; do
       "echo ✅ [1/6] Downloading app ZIP from S3...",
       "aws s3 cp s3://'${S3_BUCKET}'/'${S3_KEY}' /tmp/nodejs-app.zip --region us-east-2",
 
-      "echo ✅ [2/6] Extracting to /mnt/efs/code/Nodejs...",
-      "sudo rm -rf /mnt/efs/code/Nodejs",
-      "mkdir -p /mnt/efs/code/Nodejs",
-      "unzip -o /tmp/nodejs-app.zip -d /mnt/efs/code/Nodejs",
+      "echo ✅ [2/6] Extracting to /mnt/efs/code/nodejs-app...",
+      "sudo rm -rf /mnt/efs/code/nodejs-app",
+      "mkdir -p /mnt/efs/code/nodejs-app",
+      "unzip -o /tmp/nodejs-app.zip -d /mnt/efs/code/nodejs-app",
       "echo ✅ [3/6] Running node-deploy.sh...",
-      "chmod +x /mnt/efs/code/Nodejs/node-deploy.sh",
-      "bash /mnt/efs/code/Nodejs/node-deploy.sh",
+      "chmod +x /mnt/efs/code/nodejs-app/node-deploy.sh",
+      "bash /mnt/efs/code/nodejs-app/node-deploy.sh",
 
 
       "echo ✅ [4/6] Checking PM2...",
