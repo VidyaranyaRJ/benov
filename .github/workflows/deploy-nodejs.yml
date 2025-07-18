@@ -1,11 +1,8 @@
-name: Node.js App Deployment
+name: Node.js App Deployment via Rsync to EFS
 
 on:
   push:
-    branches:
-      - dev
-      - uat
-      - main
+    branches: [dev, uat, main]
   workflow_dispatch:
     inputs:
       environment:
@@ -13,89 +10,79 @@ on:
         required: true
         default: dev
         type: choice
-        options:
-          - dev
-          - uat
-          - prod
+        options: [dev, uat, prod]
 
 env:
+  DEPLOY_PATH: /mnt/efs/code/nodejs-app
   AWS_REGION: us-east-2
-  S3_BUCKET: vj-test-benvolate
-  MODULE: Nodejs
+  TF_STATE_BUCKET: vj-test-benvolate
+  SSH_KEY_NAME: vj-Benevolate.pem
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set environment name
-        id: set-env
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
           elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
-            echo "BRANCH_NAME=main" >> $GITHUB_ENV
           else
             echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-            echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
-          
-          echo "Deploying to environment: $ENVIRONMENT"
-          echo "From branch: $BRANCH_NAME"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Create deployment package
+      - name: Install AWS CLI & Tree
         run: |
-          echo "📦 Creating deployment package for $ENVIRONMENT environment..."
-          
-          # Create deployment metadata
-          mkdir -p deploy-temp
-          echo "ENVIRONMENT=$ENVIRONMENT" > deploy-temp/.deploy-meta
-          echo "BRANCH=$BRANCH_NAME" >> deploy-temp/.deploy-meta
-          echo "COMMIT_SHA=${{ github.sha }}" >> deploy-temp/.deploy-meta
-          echo "DEPLOY_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> deploy-temp/.deploy-meta
-          
-          # Copy Nodejs folder contents (excluding .git, node_modules, etc.)
-          cp -r Nodejs/* deploy-temp/
-          
-          # Create zip package
-          cd deploy-temp
-          zip -r ../nodejs-app.zip . -x "*.git*" "node_modules/*" "*.DS_Store*"
-          cd ..
-          
-          echo "✅ Package created: nodejs-app.zip"
-          ls -lah nodejs-app.zip
+          sudo apt-get update
+          sudo apt-get install -y awscli tree
 
-      - name: Upload to S3
+      - name: Download SSH Key from S3
         run: |
-          S3_PATH="s3://${S3_BUCKET}/nodejs/${ENVIRONMENT}"
-          
-          echo "☁️ Uploading nodejs-app.zip to ${S3_PATH}/"
-          aws s3 cp nodejs-app.zip ${S3_PATH}/nodejs-app.zip --region $AWS_REGION
-          
-          echo "☁️ Uploading deployment script to ${S3_PATH}/"
-          aws s3 cp deploy.sh ${S3_PATH}/deploy.sh --region $AWS_REGION
+          echo "📥 Downloading SSH key from S3..."
+          SSH_S3_PATH="s3://$TF_STATE_BUCKET/EC2/$SSH_KEY_NAME"
+          if ! aws s3 cp "$SSH_S3_PATH" "$SSH_KEY_NAME" --region "$AWS_REGION"; then
+            echo "❌ SSH key not found in S3 at $SSH_S3_PATH"
+            exit 1
+          fi
+          chmod 600 $SSH_KEY_NAME
 
-          echo "☁️ Uploading PM2 reset script to S3..."
-          aws s3 cp Nodejs/scripts/pm2-reset-restart.sh s3://${S3_BUCKET}/scripts/pm2-reset-restart.sh --region $AWS_REGION
-          
-          echo "✅ Files uploaded successfully"
-
-          
-
-      - name: Trigger EC2 deployment
+      - name: Get EC2 Public IPs by Environment
+        id: ec2-ip
         run: |
-          echo "🚀 Triggering deployment to $ENVIRONMENT environment..."
-          chmod +x ./deploy.sh
-          ./deploy.sh $ENVIRONMENT
+          echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
+          INSTANCE_IPS=$(aws ec2 describe-instances \
+            --region $AWS_REGION \
+            --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
+                      "Name=tag:Name,Values=*-$(echo $ENVIRONMENT)" \
+                      "Name=instance-state-name,Values=running" \
+            --query 'Reservations[*].Instances[*].PublicIpAddress' \
+            --output text)
+          
+          if [[ -z "$INSTANCE_IPS" ]]; then
+            echo "❌ No running EC2 instances found for environment: $ENVIRONMENT"
+            exit 1
+          fi
+
+          echo "EC2_INSTANCE_IPS=$INSTANCE_IPS" >> $GITHUB_ENV
+
+      - name: Rsync changed files to EC2s (no delete)
+        run: |
+          for ip in $EC2_INSTANCE_IPS; do
+            echo "🔁 Syncing to $ip ..."
+            rsync -avz \
+              -e "ssh -i $SSH_KEY_NAME -o StrictHostKeyChecking=no" \
+              ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/
+          done
+
+      - name: Run PM2 reset script on EC2s
+        run: |
+          for ip in $EC2_INSTANCE_IPS; do
+            echo "🚀 Running PM2 reset on $ip ..."
+            ssh -i $SSH_KEY_NAME -o StrictHostKeyChecking=no ec2-user@$ip \
+              "bash $DEPLOY_PATH/scripts/pm2-reset-restart.sh"
+          done
