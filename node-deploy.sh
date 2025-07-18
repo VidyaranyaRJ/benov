@@ -207,11 +207,26 @@ if ! command -v pm2 &>/dev/null; then
 fi
 
 # === Application Backup and Deployment ===
-if [ -d "${DEPLOY_DIR}" ]; then
-  echo "🔄 Backing up existing application..."
-  rm -rf ${APP_DIR}/nodejs-app-backup || true
-  mv ${DEPLOY_DIR} ${APP_DIR}/nodejs-app-backup
+# if [ -d "${DEPLOY_DIR}" ]; then
+#   echo "🔄 Backing up existing application..."
+#   rm -rf ${APP_DIR}/nodejs-app-backup || true
+#   mv ${DEPLOY_DIR} ${APP_DIR}/nodejs-app-backup
+# fi
+
+echo "🧹 Removing old application directory..."
+rm -rf ${DEPLOY_DIR}
+
+echo "🚀 Deploying new application..."
+mkdir -p ${DEPLOY_DIR}
+if [ -f "${TEMP_DIR}/package.json" ]; then
+  mv ${TEMP_DIR}/* ${DEPLOY_DIR}/
+elif [ -f "${TEMP_DIR}/Nodejs/package.json" ]; then
+  mv ${TEMP_DIR}/Nodejs/* ${DEPLOY_DIR}/
+else
+  echo "❌ package.json not found after unzip — aborting"
+  exit 1
 fi
+
 
 echo "🚀 Deploying application..."
 mkdir -p ${DEPLOY_DIR}
