@@ -213,6 +213,31 @@ fi
 #   mv ${DEPLOY_DIR} ${APP_DIR}/nodejs-app-backup
 # fi
 
+
+###################################################################
+# echo "🧹 Removing old application directory..."
+# rm -rf ${DEPLOY_DIR}
+
+# echo "🚀 Deploying new application..."
+# mkdir -p ${DEPLOY_DIR}
+# if [ -f "${TEMP_DIR}/package.json" ]; then
+#   mv ${TEMP_DIR}/* ${DEPLOY_DIR}/
+# elif [ -f "${TEMP_DIR}/Nodejs/package.json" ]; then
+#   mv ${TEMP_DIR}/Nodejs/* ${DEPLOY_DIR}/
+# else
+#   echo "❌ package.json not found after unzip — aborting"
+#   exit 1
+# fi
+
+
+# echo "🚀 Deploying application..."
+# mkdir -p ${DEPLOY_DIR}
+# if [ -f "${TEMP_DIR}/package.json" ]; then
+#   mv ${TEMP_DIR}/* ${DEPLOY_DIR}/
+# elif [ -f "${TEMP_DIR}/Nodejs/package.json" ]; then
+#   mv ${TEMP_DIR}/Nodejs/* ${DEPLOY_DIR}/
+# fi
+###################################################################
 echo "🧹 Removing old application directory..."
 rm -rf ${DEPLOY_DIR}
 
@@ -228,13 +253,10 @@ else
 fi
 
 
-echo "🚀 Deploying application..."
-mkdir -p ${DEPLOY_DIR}
-if [ -f "${TEMP_DIR}/package.json" ]; then
-  mv ${TEMP_DIR}/* ${DEPLOY_DIR}/
-elif [ -f "${TEMP_DIR}/Nodejs/package.json" ]; then
-  mv ${TEMP_DIR}/Nodejs/* ${DEPLOY_DIR}/
-fi
+echo "📂 Contents of deployed app:"
+ls -l ${DEPLOY_DIR}
+
+
 
 # === Environment Configuration ===
 cd ${DEPLOY_DIR}
