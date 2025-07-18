@@ -292,8 +292,6 @@
 #           echo "✅ Cleanup completed"
 
 
-
-
 name: Node.js App Deployment via Rsync to EFS (Incremental)
 
 on:
@@ -485,27 +483,38 @@ jobs:
               mkdir -p $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)
               cd $DEPLOY_PATH
               for file in $CHANGED_FILES; do
-                if [[ -f \"\$file\" ]]; then
-                  cp -p \"\$file\" backup/\$(date +%Y%m%d_%H%M%S)/ 2>/dev/null || true
+                # Remove 'Nodejs/' prefix for backup
+                relative_file=\$(echo \"\$file\" | sed 's|^Nodejs/||')
+                if [[ -f \"\$relative_file\" ]]; then
+                  mkdir -p backup/\$(date +%Y%m%d_%H%M%S)/\$(dirname \"\$relative_file\") 2>/dev/null || true
+                  cp -p \"\$relative_file\" backup/\$(date +%Y%m%d_%H%M%S)/\"\$relative_file\" 2>/dev/null || true
                 fi
               done
             "
             
-            # Deploy only changed files
-            if rsync -avz \
-              -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
-              --include='*/' \
-              --include='$(echo "$CHANGED_FILES" | sed "s/Nodejs\///g" | sed "s/ /\' --include=\'/g")' \
-              --exclude='*' \
-              --exclude='node_modules/' \
-              --exclude='.git/' \
-              --exclude='*.log' \
-              ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/; then
-              echo "✅ Incremental deployment completed for $ip"
-              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-            else
-              echo "❌ Incremental deployment failed for $ip"
-            fi
+            # Deploy only changed files using a more targeted approach
+            for file in $CHANGED_FILES; do
+              # Remove 'Nodejs/' prefix to get the relative path
+              relative_file=$(echo "$file" | sed 's|^Nodejs/||')
+              
+              echo "  📄 Syncing: $relative_file"
+              
+              # Create directory structure if needed
+              dir_path=$(dirname "$relative_file")
+              if [[ "$dir_path" != "." ]]; then
+                ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "mkdir -p $DEPLOY_PATH/$dir_path"
+              fi
+              
+              # Copy the specific file
+              if scp -i ec2_key.pem -o StrictHostKeyChecking=no "./Nodejs/$relative_file" "ec2-user@$ip:$DEPLOY_PATH/$relative_file"; then
+                echo "    ✅ Successfully copied $relative_file"
+              else
+                echo "    ❌ Failed to copy $relative_file"
+              fi
+            done
+            
+            echo "✅ Incremental deployment completed for $ip"
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
           done
           
           if [[ $SUCCESS_COUNT -eq 0 ]]; then
@@ -530,16 +539,21 @@ jobs:
             # Create deployment directory
             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "sudo mkdir -p $DEPLOY_PATH && sudo chown ec2-user:ec2-user $DEPLOY_PATH"
             
-            # Create backup
+            # Create backup of existing application files (not manual files)
             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
               if [ -d $DEPLOY_PATH ] && [ \"\$(ls -A $DEPLOY_PATH 2>/dev/null)\" ]; then
-                mkdir -p $DEPLOY_PATH/backup
-                cp -r $DEPLOY_PATH/* $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)/ 2>/dev/null || true
+                mkdir -p $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)
+                # Only backup known application files, not manual additions
+                for item in app.js package.json package-lock.json ecosystem.config.js routes views public controllers models middleware config; do
+                  if [ -e $DEPLOY_PATH/\$item ]; then
+                    cp -r $DEPLOY_PATH/\$item $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)/ 2>/dev/null || true
+                  fi
+                done
               fi
             "
             
-            # Full sync
-            if rsync -avz --delete \
+            # Full sync WITHOUT --delete to preserve manual files
+            if rsync -avz \
               -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
               --exclude='node_modules/' \
               --exclude='.git/' \
