@@ -41,10 +41,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y unzip curl tree
 
-          echo "📦 Installing AWS CLI v2 manually..."
+          echo "📦 Installing AWS CLI v2 manually (with --update)..."
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
+          unzip -o awscliv2.zip
+          sudo ./aws/install --update
           aws --version
 
       - name: Download SSH Key from S3
