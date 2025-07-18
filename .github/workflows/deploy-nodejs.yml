@@ -140,8 +140,6 @@
 
 
 
-
-
 name: Node.js App Deployment
 
 on:
@@ -149,47 +147,63 @@ on:
     branches:
       - dev
       - uat
-      - prod
+      - main
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy (dev, uat, prod)"
+        required: true
+        default: dev
+
+env:
+  AWS_REGION: us-east-2
+  S3_BUCKET_BASE: vj-test-benvolate
+  MODULE: Nodejs
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      S3_BUCKET: your-bucket-name-based-on-env
-      DEPLOY_SCRIPT: deploy.sh
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set environment from branch
-      id: set-env
-      run: |
-        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
-          echo "ENVIRONMENT=dev" >> $GITHUB_ENV
-        elif [[ "${{ github.ref }}" == "refs/heads/uat" ]]; then
-          echo "ENVIRONMENT=uat" >> $GITHUB_ENV
-        elif [[ "${{ github.ref }}" == "refs/heads/prod" ]]; then
-          echo "ENVIRONMENT=prod" >> $GITHUB_ENV
-        else
-          echo "Unknown branch, skipping..."
-          exit 1
-        fi
+      - name: Set environment name
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+          else
+            echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          fi
 
-    - name: Zip Nodejs/ folder
-      run: |
-        zip -r nodejs-app.zip Nodejs/
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
 
-    - name: Upload ZIP to S3
-      run: |
-        aws s3 cp nodejs-app.zip s3://your-s3-bucket-name-$ENVIRONMENT/nodejs-app.zip
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: us-east-1
+      - name: Zip Nodejs/ folder
+        run: |
+          echo "Zipping Nodejs/ for $ENVIRONMENT"
+          echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
+          (cd Nodejs && zip -r ../nodejs-app.zip .)
 
-    - name: Trigger EC2 deployment
-      run: |
-        chmod +x ./deploy.sh
-        ./deploy.sh $ENVIRONMENT
+      - name: Upload zip to S3
+        run: |
+          echo "Uploading to s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/nodejs-app.zip"
+          aws s3 cp nodejs-app.zip s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/nodejs-app.zip --region $AWS_REGION
+
+      - name: Upload deployment script to S3
+        run: |
+          echo "Uploading node-deploy.sh to s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/node-deploy.sh"
+          aws s3 cp Nodejs/node-deploy.sh s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/node-deploy.sh --region $AWS_REGION
+
+      - name: Trigger EC2 deployment
+        run: |
+          echo "Triggering deploy.sh with ENVIRONMENT=$ENVIRONMENT"
+          chmod +x ./deploy.sh
+          ./deploy.sh $ENVIRONMENT
