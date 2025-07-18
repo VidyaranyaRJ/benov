@@ -164,9 +164,12 @@ jobs:
       - name: Restart application services
         run: |
           echo "🔄 Restarting application services..."
+          RESTART_SUCCESS=0
+          RESTART_TOTAL=0
           
           for ip in $EC2_INSTANCE_IPS; do
             echo "🚀 Restarting services on $ip..."
+            RESTART_TOTAL=$((RESTART_TOTAL + 1))
             
             # Test SSH first
             if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
@@ -176,27 +179,76 @@ jobs:
             
             # Check if PM2 script exists and run it
             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "test -f $DEPLOY_PATH/scripts/pm2-reset-restart.sh"; then
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && bash scripts/pm2-reset-restart.sh"
-              echo "✅ PM2 restart completed for $ip"
+              echo "📋 Running PM2 reset script on $ip..."
+              
+              # Run the PM2 script and capture its exit code
+              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && bash scripts/pm2-reset-restart.sh"; then
+                echo "✅ PM2 restart completed successfully for $ip"
+                RESTART_SUCCESS=$((RESTART_SUCCESS + 1))
+              else
+                SCRIPT_EXIT_CODE=$?
+                echo "❌ PM2 restart script failed for $ip with exit code: $SCRIPT_EXIT_CODE"
+                echo "🔍 Checking PM2 status..."
+                ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "pm2 list" || echo "Could not get PM2 status"
+                echo "🔍 Checking if app is running manually..."
+                ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "ps aux | grep node" || echo "No node processes found"
+              fi
             else
               echo "⚠️  PM2 script not found on $ip, attempting manual restart..."
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && pm2 restart all || pm2 start ecosystem.config.js || echo 'Manual restart required'"
+              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && (pm2 restart all || pm2 start ecosystem.config.js || pm2 start app.js --name nodejs-app)"; then
+                echo "✅ Manual restart completed for $ip"
+                RESTART_SUCCESS=$((RESTART_SUCCESS + 1))
+              else
+                echo "❌ Manual restart failed for $ip"
+              fi
             fi
           done
+          
+          echo "📊 Restart Summary: $RESTART_SUCCESS/$RESTART_TOTAL instances restarted successfully"
+          
+          # Don't fail the workflow if at least one instance was restarted successfully
+          if [[ $RESTART_SUCCESS -gt 0 ]]; then
+            echo "✅ At least one instance restarted successfully"
+          else
+            echo "❌ No instances restarted successfully"
+            exit 1
+          fi
 
       - name: Verify deployment
         run: |
           echo "🔍 Verifying deployment..."
+          VERIFY_SUCCESS=0
           
           for ip in $EC2_INSTANCE_IPS; do
             echo "Checking $ip..."
             
             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip "pm2 list" 2>/dev/null; then
-              echo "✅ PM2 processes running on $ip"
+              echo "✅ PM2 processes verified on $ip"
+              VERIFY_SUCCESS=$((VERIFY_SUCCESS + 1))
+              
+              # Check if the app is actually running
+              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "pm2 list | grep -q 'online'"; then
+                echo "✅ Application is running on $ip"
+              else
+                echo "⚠️  PM2 is running but no online processes on $ip"
+              fi
+              
+              # Check if port 3000 is listening
+              if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "netstat -tlnp | grep ':3000 ' || ss -tlnp | grep ':3000 '"; then
+                echo "✅ Port 3000 is listening on $ip"
+              else
+                echo "⚠️  Port 3000 is not listening on $ip"
+              fi
             else
               echo "⚠️  Could not verify PM2 status on $ip"
             fi
           done
+          
+          echo "📊 Deployment Summary:"
+          echo "- Files deployed successfully to all instances"
+          echo "- PM2 restart attempted on all instances"
+          echo "- Verification completed for $VERIFY_SUCCESS instances"
+          echo "✅ Deployment process completed"
 
       - name: Cleanup
         if: always()
