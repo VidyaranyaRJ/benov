@@ -68,7 +68,6 @@ jobs:
           
           # Copy Nodejs folder contents (excluding .git, node_modules, etc.)
           cp -r Nodejs/* deploy-temp/
-          cp deploy-temp/.deploy-meta deploy-temp/
           
           # Create zip package
           cd deploy-temp
