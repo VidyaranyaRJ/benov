@@ -1,145 +1,3 @@
-# name: Node.js App Deployment
-
-# on:
-#   push:
-#     branches:
-#       - dev
-#       - uat
-#       - main
-#   workflow_dispatch:
-#     inputs:
-#       environment:
-#         description: "Environment to deploy (dev, uat, prod)"
-#         required: true
-#         default: dev
-
-# env:
-#   AWS_REGION: us-east-2
-#   S3_BUCKET: vj-test-benvolate
-#   MODULE: Nodejs
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Configure AWS Credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#           aws-region: ${{ env.AWS_REGION }}
-
-#       - name: Determine environment name
-#         id: env-map
-#         run: |
-#           if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-#             echo "env_name=prod" >> $GITHUB_OUTPUT
-#           else
-#             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-#           fi
-
-#       - name: Zip and upload Node.js app to S3
-#         run: |
-#           # Create ZIP with the Nodejs folder structure intact
-#           # This maintains the folder structure that your deployment script expects
-#           zip -r nodejs-app.zip Nodejs node-deploy.sh -x "**/.git/*"
-#           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${{ steps.env-map.outputs.env_name }}/
-
-#       - name: Run deploy.sh for ${{ env.MODULE }}
-#         env:
-#           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
-#         run: |
-#           echo "Deploying $MODULE to environment $ENVIRONMENT"
-#           bash deploy.sh $ENVIRONMENT
-
-
-
-
-# name: Node.js App Deployment
-
-# on:
-#   push:
-#     branches:
-#       - dev
-#       - uat
-#       - main
-#   workflow_dispatch:
-#     inputs:
-#       environment:
-#         description: "Environment to deploy (dev, uat, prod)"
-#         required: true
-#         default: dev
-
-# env:
-#   AWS_REGION: us-east-2
-#   S3_BUCKET: vj-test-benvolate
-#   MODULE: Nodejs
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-
-#     steps:
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Configure AWS Credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#           aws-region: ${{ env.AWS_REGION }}
-
-#       - name: Determine environment name
-#         id: env-map
-#         run: |
-#           if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
-#             echo "env_name=prod" >> $GITHUB_OUTPUT
-#           else
-#             echo "env_name=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-#           fi
-
-#       - name: Zip and upload Node.js app to S3
-#         run: |
-#           ENV=${{ steps.env-map.outputs.env_name }}
-#           echo "📦 Zipping Nodejs/ folder..."
-#           echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
-#           (cd Nodejs && zip -r ../nodejs-app.zip .)
-
-#           echo "☁️ Uploading nodejs-app.zip to S3..."
-#           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/nodejs-app.zip --region ${{ env.AWS_REGION }}
-
-#           echo "☁️ Uploading node-deploy.sh to S3..."
-#           aws s3 cp Nodejs/node-deploy.sh s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/node-deploy.sh --region ${{ env.AWS_REGION }}
-
-
-#       - name: Trigger EC2 deployment
-#         env:
-#           ENVIRONMENT: ${{ steps.env-map.outputs.env_name }}
-#         run: |
-#           echo "Deploying Nodejs to environment $ENVIRONMENT"
-#           bash deploy.sh $ENVIRONMENT
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 name: Node.js App Deployment
 
 on:
@@ -154,16 +12,21 @@ on:
         description: "Environment to deploy (dev, uat, prod)"
         required: true
         default: dev
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
 
 env:
   AWS_REGION: us-east-2
-  S3_BUCKET_BASE: vj-test-benvolate
+  S3_BUCKET: vj-test-benvolate
   MODULE: Nodejs
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -173,11 +36,17 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+            echo "BRANCH_NAME=${{ github.ref_name }}" >> $GITHUB_ENV
           elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+            echo "BRANCH_NAME=main" >> $GITHUB_ENV
           else
             echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "BRANCH_NAME=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
+          
+          echo "Deploying to environment: $ENVIRONMENT"
+          echo "From branch: $BRANCH_NAME"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -186,24 +55,43 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Zip Nodejs/ folder
+      - name: Create deployment package
         run: |
-          echo "Zipping Nodejs/ for $ENVIRONMENT"
-          echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
-          (cd Nodejs && zip -r ../nodejs-app.zip .)
+          echo "📦 Creating deployment package for $ENVIRONMENT environment..."
+          
+          # Create deployment metadata
+          mkdir -p deploy-temp
+          echo "ENVIRONMENT=$ENVIRONMENT" > deploy-temp/.deploy-meta
+          echo "BRANCH=$BRANCH_NAME" >> deploy-temp/.deploy-meta
+          echo "COMMIT_SHA=${{ github.sha }}" >> deploy-temp/.deploy-meta
+          echo "DEPLOY_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> deploy-temp/.deploy-meta
+          
+          # Copy Nodejs folder contents (excluding .git, node_modules, etc.)
+          cp -r Nodejs/* deploy-temp/
+          cp deploy-temp/.deploy-meta deploy-temp/
+          
+          # Create zip package
+          cd deploy-temp
+          zip -r ../nodejs-app.zip . -x "*.git*" "node_modules/*" "*.DS_Store*"
+          cd ..
+          
+          echo "✅ Package created: nodejs-app.zip"
+          ls -lah nodejs-app.zip
 
-      - name: Upload zip to S3
+      - name: Upload to S3
         run: |
-          echo "Uploading to s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/nodejs-app.zip"
-          aws s3 cp nodejs-app.zip s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/nodejs-app.zip --region $AWS_REGION
-
-      - name: Upload deployment script to S3
-        run: |
-          echo "Uploading node-deploy.sh to s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/node-deploy.sh"
-          aws s3 cp Nodejs/node-deploy.sh s3://${S3_BUCKET_BASE}/nodejs/${ENVIRONMENT}/node-deploy.sh --region $AWS_REGION
+          S3_PATH="s3://${S3_BUCKET}/nodejs/${ENVIRONMENT}"
+          
+          echo "☁️ Uploading nodejs-app.zip to ${S3_PATH}/"
+          aws s3 cp nodejs-app.zip ${S3_PATH}/nodejs-app.zip --region $AWS_REGION
+          
+          echo "☁️ Uploading deployment script to ${S3_PATH}/"
+          aws s3 cp deploy.sh ${S3_PATH}/deploy.sh --region $AWS_REGION
+          
+          echo "✅ Files uploaded successfully"
 
       - name: Trigger EC2 deployment
         run: |
-          echo "Triggering deploy.sh with ENVIRONMENT=$ENVIRONMENT"
+          echo "🚀 Triggering deployment to $ENVIRONMENT environment..."
           chmod +x ./deploy.sh
           ./deploy.sh $ENVIRONMENT
