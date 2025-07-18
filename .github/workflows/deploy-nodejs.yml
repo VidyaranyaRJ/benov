@@ -15,8 +15,6 @@ on:
 env:
   DEPLOY_PATH: /mnt/efs/code/nodejs-app
   AWS_REGION: us-east-2
-  TF_STATE_BUCKET: vj-test-benvolate
-  SSH_KEY_NAME: vj-Benevolate.pem
 
 jobs:
   deploy:
@@ -36,29 +34,23 @@ jobs:
             echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
 
-      - name: Install AWS CLI & Tree (Ubuntu 24.04 workaround)
+      - name: Install AWS CLI and tree (Ubuntu 24.04 compatible)
         run: |
           sudo apt-get update
           sudo apt-get install -y unzip curl tree
-
-          echo "📦 Installing AWS CLI v2 manually (with --update)..."
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -o awscliv2.zip
           sudo ./aws/install --update
           aws --version
 
-      - name: Download SSH Key from S3
+      - name: Write SSH key from GitHub secret
         run: |
-          echo "📥 Downloading SSH key from S3..."
-          SSH_S3_PATH="s3://$TF_STATE_BUCKET/EC2/$SSH_KEY_NAME"
-          if ! aws s3 cp "$SSH_S3_PATH" "$SSH_KEY_NAME" --region "$AWS_REGION"; then
-            echo "❌ SSH key not found in S3 at $SSH_S3_PATH"
-            exit 1
-          fi
-          chmod 600 $SSH_KEY_NAME
+          echo "$EC2_SSH_KEY" > ec2_key.pem
+          chmod 600 ec2_key.pem
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
-      - name: Get EC2 Public IPs by Environment
-        id: ec2-ip
+      - name: Get EC2 public IPs by Environment
         run: |
           echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
           INSTANCE_IPS=$(aws ec2 describe-instances \
@@ -81,7 +73,7 @@ jobs:
           for ip in $EC2_INSTANCE_IPS; do
             echo "🔁 Syncing to $ip ..."
             rsync -avz \
-              -e "ssh -i $SSH_KEY_NAME -o StrictHostKeyChecking=no" \
+              -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
               ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/
           done
 
@@ -89,6 +81,6 @@ jobs:
         run: |
           for ip in $EC2_INSTANCE_IPS; do
             echo "🚀 Running PM2 reset on $ip ..."
-            ssh -i $SSH_KEY_NAME -o StrictHostKeyChecking=no ec2-user@$ip \
+            ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip \
               "bash $DEPLOY_PATH/scripts/pm2-reset-restart.sh"
           done
