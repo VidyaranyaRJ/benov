@@ -113,10 +113,18 @@ for INSTANCE_ID in $EC2_INSTANCE_IDS; do
       "npm install --production || echo ⚠️ npm install failed, continuing...",
       "echo ✅ Dependencies installed",
       "",
-      "echo ✅ [6/6] Starting application with PM2...",
-      "pm2 start app.js --name nodejs-app --cwd $(pwd) --env production",
+      "echo ✅ [6/6] Replacing PM2 processes...",
+      "pm2 delete all || true",
+      "pm2 kill || true",
+      "rm -rf ~/.pm2",
+      "",
+      "echo ✅ Installing dependencies...",
+      "npm ci --silent || echo ⚠️ npm ci failed, continuing...",
+      "",
+      "echo ✅ Starting new PM2 process...",
+      "pm2 start app.js --name nodejs-app --cwd /mnt/efs/code/nodejs-app --env production",
       "pm2 save",
-      "echo ✅ Application started"
+      "echo ✅ PM2 started with fresh code"
     ]' \
     --query 'Command.CommandId' --output text)
   
