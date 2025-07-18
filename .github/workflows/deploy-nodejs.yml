@@ -61,19 +61,20 @@ jobs:
         run: |
           echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
           INSTANCE_IPS=$(aws ec2 describe-instances \
-            --region $AWS_REGION \
+            --region "$AWS_REGION" \
             --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
                       "Name=tag:Name,Values=*-$(echo $ENVIRONMENT)" \
                       "Name=instance-state-name,Values=running" \
             --query 'Reservations[*].Instances[*].PublicIpAddress' \
             --output text)
-          
+
           if [[ -z "$INSTANCE_IPS" ]]; then
             echo "❌ No running EC2 instances found for environment: $ENVIRONMENT"
             exit 1
           fi
 
-          echo "EC2_INSTANCE_IPS=\"$INSTANCE_IPS\"" >> $GITHUB_ENV
+          # Use printf to escape newlines and double quotes
+          echo "EC2_INSTANCE_IPS=$(printf '%q' "$INSTANCE_IPS")" >> "$GITHUB_ENV"
 
       - name: Rsync changed files to EC2s (no delete)
         run: |
