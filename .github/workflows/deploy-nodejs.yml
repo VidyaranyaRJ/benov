@@ -108,7 +108,7 @@ jobs:
           ENV=${{ steps.env-map.outputs.env_name }}
           echo "📦 Zipping Nodejs/ folder..."
           echo "BRANCH=${GITHUB_REF_NAME}" > Nodejs/.deploy-meta
-          zip -r nodejs-app.zip Nodejs
+          (cd Nodejs && zip -r ../nodejs-app.zip .)
 
           echo "☁️ Uploading nodejs-app.zip to S3..."
           aws s3 cp nodejs-app.zip s3://${{ env.S3_BUCKET }}/nodejs/${ENV}/nodejs-app.zip --region ${{ env.AWS_REGION }}
