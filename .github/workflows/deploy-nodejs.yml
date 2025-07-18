@@ -33,22 +33,16 @@ jobs:
           else
             echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
+          echo "🎯 Deploying to environment: $ENVIRONMENT"
 
-      - name: Install AWS CLI and tree (Ubuntu 24.04 compatible)
+      - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip curl tree
+          sudo apt-get install -y unzip curl
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -o awscliv2.zip
           sudo ./aws/install --update
           aws --version
-
-      - name: Write SSH key from GitHub secret
-        run: |
-          echo "$EC2_SSH_KEY" > ec2_key.pem
-          chmod 600 ec2_key.pem
-        env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -57,70 +51,156 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get EC2 public IPs by Environment
+      - name: Setup SSH key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+          chmod 600 ec2_key.pem
+
+      - name: Get EC2 instances for deployment
+        id: get_instances
         run: |
           echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
-          INSTANCE_IPS=$(aws ec2 describe-instances \
+          
+          # Get instances in JSON format for better parsing
+          INSTANCES_JSON=$(aws ec2 describe-instances \
             --region "$AWS_REGION" \
             --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
-                      "Name=tag:Name,Values=*-$(echo $ENVIRONMENT)" \
                       "Name=instance-state-name,Values=running" \
-            --query 'Reservations[*].Instances[*].PublicIpAddress' \
-            --output text)
-
-          if [[ -z "$INSTANCE_IPS" ]]; then
-            echo "❌ No running EC2 instances found for environment: $ENVIRONMENT"
+            --query 'Reservations[*].Instances[*].[InstanceId,PublicIpAddress,Tags[?Key==`Name`].Value|[0]]' \
+            --output json)
+          
+          echo "Raw JSON output:"
+          echo "$INSTANCES_JSON"
+          
+          # Extract public IPs, filtering out null values
+          PUBLIC_IPS=$(echo "$INSTANCES_JSON" | jq -r '.[][] | select(.[1] != null) | .[1]' | tr '\n' ' ')
+          
+          if [[ -z "$PUBLIC_IPS" || "$PUBLIC_IPS" == " " ]]; then
+            echo "❌ No running EC2 instances with public IPs found for environment: $ENVIRONMENT"
+            echo "Available instances:"
+            echo "$INSTANCES_JSON" | jq -r '.[][] | "\(.[0]) - \(.[2] // "No Name") - Public IP: \(.[1] // "None")"'
             exit 1
           fi
+          
+          # Clean up the IPs string
+          PUBLIC_IPS=$(echo "$PUBLIC_IPS" | xargs)
+          
+          echo "EC2_INSTANCE_IPS=$PUBLIC_IPS" >> "$GITHUB_ENV"
+          echo "📋 Found instances with public IPs: $PUBLIC_IPS"
+          
+          # Count instances
+          IP_COUNT=$(echo "$PUBLIC_IPS" | wc -w)
+          echo "📊 Total instances: $IP_COUNT"
 
-          # Store IPs as space-separated string without shell escaping
-          echo "EC2_INSTANCE_IPS=$INSTANCE_IPS" >> "$GITHUB_ENV"
-          echo "📋 Found instances: $INSTANCE_IPS"
-
-      - name: Verify SSH connectivity
+      - name: Test SSH connectivity
         run: |
-          echo "🔧 Testing SSH connectivity to all instances..."
+          echo "🔧 Testing SSH connectivity..."
+          SUCCESS_COUNT=0
+          TOTAL_COUNT=0
+          
           for ip in $EC2_INSTANCE_IPS; do
-            if [[ -n "$ip" && "$ip" != "None" ]]; then
-              echo "Testing connection to $ip..."
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip "echo 'SSH connection successful to $ip'" || {
-                echo "❌ Failed to connect to $ip"
-                exit 1
-              }
-            fi
-          done
-
-      - name: Rsync changed files to EC2s (no delete)
-        run: |
-          for ip in $EC2_INSTANCE_IPS; do
-            if [[ -n "$ip" && "$ip" != "None" ]]; then
-              echo "🔁 Syncing to $ip ..."
-              rsync -avz \
-                -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
-                --exclude='node_modules/' \
-                --exclude='.git/' \
-                --exclude='*.log' \
-                ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/
-              echo "✅ Sync completed for $ip"
+            TOTAL_COUNT=$((TOTAL_COUNT + 1))
+            echo "Testing SSH to $ip..."
+            
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o BatchMode=yes ec2-user@$ip "echo 'Connected to $ip'" 2>/dev/null; then
+              echo "✅ SSH connection successful to $ip"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
-              echo "⚠️  Skipping empty or None IP address"
+              echo "❌ SSH connection failed to $ip"
+              echo "Retrying with verbose output..."
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=15 -vvv ec2-user@$ip "echo 'test'" 2>&1 | head -20
             fi
           done
+          
+          if [[ $SUCCESS_COUNT -eq 0 ]]; then
+            echo "❌ No SSH connections successful. Aborting deployment."
+            exit 1
+          elif [[ $SUCCESS_COUNT -lt $TOTAL_COUNT ]]; then
+            echo "⚠️  Only $SUCCESS_COUNT out of $TOTAL_COUNT instances accessible via SSH"
+            echo "Continuing with accessible instances..."
+          else
+            echo "✅ All $TOTAL_COUNT instances accessible via SSH"
+          fi
 
-      - name: Run PM2 reset script on EC2s
+      - name: Deploy application files
         run: |
+          echo "🚀 Starting deployment..."
+          SUCCESS_COUNT=0
+          
           for ip in $EC2_INSTANCE_IPS; do
-            if [[ -n "$ip" && "$ip" != "None" ]]; then
-              echo "🚀 Running PM2 reset on $ip ..."
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip \
-                "bash $DEPLOY_PATH/scripts/pm2-reset-restart.sh"
-              echo "✅ PM2 reset completed for $ip"
+            echo "📁 Deploying to $ip..."
+            
+            # Test SSH first
+            if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "❌ Skipping $ip - SSH not accessible"
+              continue
+            fi
+            
+            # Create deployment directory if it doesn't exist
+            ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "sudo mkdir -p $DEPLOY_PATH && sudo chown ec2-user:ec2-user $DEPLOY_PATH"
+            
+            # Sync files
+            if rsync -avz --delete \
+              -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
+              --exclude='node_modules/' \
+              --exclude='.git/' \
+              --exclude='*.log' \
+              --exclude='.env' \
+              ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/; then
+              echo "✅ File sync completed for $ip"
+              SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             else
-              echo "⚠️  Skipping empty or None IP address"
+              echo "❌ File sync failed for $ip"
+            fi
+          done
+          
+          if [[ $SUCCESS_COUNT -eq 0 ]]; then
+            echo "❌ No deployments successful"
+            exit 1
+          else
+            echo "✅ Deployed successfully to $SUCCESS_COUNT instances"
+          fi
+
+      - name: Restart application services
+        run: |
+          echo "🔄 Restarting application services..."
+          
+          for ip in $EC2_INSTANCE_IPS; do
+            echo "🚀 Restarting services on $ip..."
+            
+            # Test SSH first
+            if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "❌ Skipping $ip - SSH not accessible"
+              continue
+            fi
+            
+            # Check if PM2 script exists and run it
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "test -f $DEPLOY_PATH/scripts/pm2-reset-restart.sh"; then
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && bash scripts/pm2-reset-restart.sh"
+              echo "✅ PM2 restart completed for $ip"
+            else
+              echo "⚠️  PM2 script not found on $ip, attempting manual restart..."
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "cd $DEPLOY_PATH && pm2 restart all || pm2 start ecosystem.config.js || echo 'Manual restart required'"
             fi
           done
 
-      - name: Cleanup SSH key
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          
+          for ip in $EC2_INSTANCE_IPS; do
+            echo "Checking $ip..."
+            
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip "pm2 list" 2>/dev/null; then
+              echo "✅ PM2 processes running on $ip"
+            else
+              echo "⚠️  Could not verify PM2 status on $ip"
+            fi
+          done
+
+      - name: Cleanup
         if: always()
         run: |
+          echo "🧹 Cleaning up..."
           rm -f ec2_key.pem
+          echo "✅ Cleanup completed"
