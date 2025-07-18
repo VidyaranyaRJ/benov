@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -euo pipefail
 
 # === Config ===
@@ -67,15 +66,17 @@ for INSTANCE_ID in $EC2_INSTANCE_IDS; do
       "sudo rm -rf /mnt/efs/code/nodejs-app",
       "mkdir -p /mnt/efs/code/nodejs-app",
       "unzip -o /tmp/nodejs-app.zip -d /mnt/efs/code/nodejs-app",
+
       "echo ✅ [3/6] Running node-deploy.sh...",
       "chmod +x /mnt/efs/code/nodejs-app/node-deploy.sh",
       "bash /mnt/efs/code/nodejs-app/node-deploy.sh",
 
-
       "echo ✅ [4/6] Checking PM2...",
       "pm2 list | grep nodejs-app || echo ⚠️ nodejs-app not running",
+
       "echo ✅ [5/6] Checking port 3000...",
       "lsof -i:3000 || echo ✅ Port 3000 free",
+
       "echo ✅ [6/6] Finished deployment on '${INSTANCE_ID}'"
     ]' \
     --output text
