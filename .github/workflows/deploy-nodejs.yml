@@ -73,22 +73,54 @@ jobs:
             exit 1
           fi
 
-          # Use printf to escape newlines and double quotes
-          echo "EC2_INSTANCE_IPS=$(printf '%q' "$INSTANCE_IPS")" >> "$GITHUB_ENV"
+          # Store IPs as space-separated string without shell escaping
+          echo "EC2_INSTANCE_IPS=$INSTANCE_IPS" >> "$GITHUB_ENV"
+          echo "📋 Found instances: $INSTANCE_IPS"
+
+      - name: Verify SSH connectivity
+        run: |
+          echo "🔧 Testing SSH connectivity to all instances..."
+          for ip in $EC2_INSTANCE_IPS; do
+            if [[ -n "$ip" && "$ip" != "None" ]]; then
+              echo "Testing connection to $ip..."
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip "echo 'SSH connection successful to $ip'" || {
+                echo "❌ Failed to connect to $ip"
+                exit 1
+              }
+            fi
+          done
 
       - name: Rsync changed files to EC2s (no delete)
         run: |
           for ip in $EC2_INSTANCE_IPS; do
-            echo "🔁 Syncing to $ip ..."
-            rsync -avz \
-              -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
-              ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/
+            if [[ -n "$ip" && "$ip" != "None" ]]; then
+              echo "🔁 Syncing to $ip ..."
+              rsync -avz \
+                -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
+                --exclude='node_modules/' \
+                --exclude='.git/' \
+                --exclude='*.log' \
+                ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/
+              echo "✅ Sync completed for $ip"
+            else
+              echo "⚠️  Skipping empty or None IP address"
+            fi
           done
 
       - name: Run PM2 reset script on EC2s
         run: |
           for ip in $EC2_INSTANCE_IPS; do
-            echo "🚀 Running PM2 reset on $ip ..."
-            ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip \
-              "bash $DEPLOY_PATH/scripts/pm2-reset-restart.sh"
+            if [[ -n "$ip" && "$ip" != "None" ]]; then
+              echo "🚀 Running PM2 reset on $ip ..."
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip \
+                "bash $DEPLOY_PATH/scripts/pm2-reset-restart.sh"
+              echo "✅ PM2 reset completed for $ip"
+            else
+              echo "⚠️  Skipping empty or None IP address"
+            fi
           done
+
+      - name: Cleanup SSH key
+        if: always()
+        run: |
+          rm -f ec2_key.pem
