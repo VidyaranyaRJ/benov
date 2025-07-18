@@ -142,31 +142,54 @@
 
 
 
-name: Deploy Node.js App
+name: Node.js App Deployment
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: "Environment to deploy (dev, uat, prod)"
-        required: true
-        default: dev
+  push:
+    branches:
+      - dev
+      - uat
+      - prod
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
+    env:
+      S3_BUCKET: your-bucket-name-based-on-env
+      DEPLOY_SCRIPT: deploy.sh
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-2
+    - name: Set environment from branch
+      id: set-env
+      run: |
+        if [[ "${{ github.ref }}" == "refs/heads/dev" ]]; then
+          echo "ENVIRONMENT=dev" >> $GITHUB_ENV
+        elif [[ "${{ github.ref }}" == "refs/heads/uat" ]]; then
+          echo "ENVIRONMENT=uat" >> $GITHUB_ENV
+        elif [[ "${{ github.ref }}" == "refs/heads/prod" ]]; then
+          echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+        else
+          echo "Unknown branch, skipping..."
+          exit 1
+        fi
 
-      - name: Deploy via SSH & S3
-        run: |
-          chmod +x ./deploy.sh
-          ./deploy.sh "${{ github.event.inputs.environment }}"
+    - name: Zip Nodejs/ folder
+      run: |
+        zip -r nodejs-app.zip Nodejs/
+
+    - name: Upload ZIP to S3
+      run: |
+        aws s3 cp nodejs-app.zip s3://your-s3-bucket-name-$ENVIRONMENT/nodejs-app.zip
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: us-east-1
+
+    - name: Trigger EC2 deployment
+      run: |
+        chmod +x ./deploy.sh
+        ./deploy.sh $ENVIRONMENT
