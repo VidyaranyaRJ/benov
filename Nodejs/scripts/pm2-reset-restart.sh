@@ -79,7 +79,12 @@ else
         pm2 start ecosystem.config.js
     elif [ -f "$APP_FILE" ]; then
         echo "📋 Starting $APP_FILE directly"
-        pm2 start "$APP_FILE" --name "$APP_NAME"
+        HOSTNAME=$(hostname)
+        DATE=$(date +%F)
+        LOG_PATH="/mnt/efs/logs/${DATE}-${HOSTNAME}-app.log"
+        echo "📁 Using dynamic log path: $LOG_PATH"
+
+        pm2 start "$APP_FILE" --name "$APP_NAME" --log "$LOG_PATH"
     else
         echo "❌ No application file found ($APP_FILE or ecosystem.config.js)"
         exit 1
