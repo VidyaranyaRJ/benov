@@ -68,8 +68,16 @@ pm2 list
 
 # Check if our app is already running
 if pm2 describe "$APP_NAME" &> /dev/null; then
-    echo "🔄 Application '$APP_NAME' exists, restarting..."
-    pm2 restart "$APP_NAME"
+    echo "🔄 Application '$APP_NAME' exists, restarting with updated log path..."
+
+    HOSTNAME=$(hostname)
+    DATE=$(date +%F)
+    LOG_PATH="/mnt/efs/logs/${DATE}-${HOSTNAME}-app.log"
+    echo "📁 Using updated log path: $LOG_PATH"
+
+    pm2 delete "$APP_NAME"
+    pm2 start "$APP_FILE" --name "$APP_NAME" --log "$LOG_PATH"
+    
 else
     echo "🆕 Application '$APP_NAME' not found, starting new instance..."
     
