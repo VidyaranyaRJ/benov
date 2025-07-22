@@ -118,7 +118,6 @@ app.get('/health', (req, res) => {
 // });
 
 
-
 app.get('/', (req, res) => {
   const environment = process.env.ENVIRONMENT || 'EC2 (Default)';
   const ip_address = getServerIpAddress();
