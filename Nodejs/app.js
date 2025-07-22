@@ -129,7 +129,7 @@ app.get('/', (req, res) => {
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
-    <h1>Benevolate - 7/22 - test</h1>
+    <h1>Benevolate - 7/22 - uat</h1>
     <p><strong>Environment:</strong> ${environment}</p>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>

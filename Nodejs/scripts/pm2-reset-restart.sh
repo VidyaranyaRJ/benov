@@ -77,7 +77,7 @@ if pm2 describe "$APP_NAME" &> /dev/null; then
 
     pm2 delete "$APP_NAME"
     pm2 start "$APP_FILE" --name "$APP_NAME" --log "$LOG_PATH"
-    
+
 else
     echo "🆕 Application '$APP_NAME' not found, starting new instance..."
     
