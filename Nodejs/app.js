@@ -3,6 +3,10 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const os = require('os');
+
+const { execSync } = require("child_process");
+
+
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
 const logger = require('./js/logger');
@@ -42,7 +46,8 @@ app.get('/insertRandomUser', async (req, res) => {
     const phone = faker.phone.number();
 
     const ip_address = getServerIpAddress();
-    const host_name = os.hostname();
+    // const host_name = os.hostname();
+    const host_name = execSync("hostname").toString().trim();
 
     const [result] = await promiseDB.execute(
       'INSERT INTO stress_test_users (name, email, user_type, phone, ip_address, host_name, testcaseid, misc, ec2instances, acu) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -121,12 +126,14 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   const environment = process.env.ENVIRONMENT || 'EC2 (Default)';
   const ip_address = getServerIpAddress();
-  const host_name = os.hostname();
+  // const host_name = os.hostname();
+  const host_name = execSync("hostname").toString().trim();
+
   const current_time = new Date().toLocaleString();
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
-    <h1>Benevolate - 7/21</h1>
+    <h1>Benevolate - 7/22</h1>
     <p><strong>Environment:</strong> ${environment}</p>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
