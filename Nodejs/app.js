@@ -128,14 +128,13 @@ app.get('/', (req, res) => {
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
-    <h1>Benevolate - 7/22 - uat</h1>
-    <p><strong>Environment:</strong> ${environment}</p>
+    <h1>Benevolate - 7/24 - ${environment}</h1>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
     <p><strong>Memory Used:</strong> ${memory_used} MB</p>
   `);
-});
+  });
 
 
 const PORT = process.env.PORT || 3000;
