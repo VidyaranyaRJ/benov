@@ -9,6 +9,7 @@ const { promiseDB } = require('./js/db');
 const logger = require('./js/logger');
 
 const app = express();
+const XLSX = require('xlsx');
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -28,6 +29,36 @@ function getServerIpAddress() {
   }
   return '127.0.0.1';
 }
+
+app.get('/test-xlsx', (req, res) => {
+  try {
+    // 1. Create sample data
+    const data = [
+      { Name: 'Alice', Email: 'alice@example.com', Age: 30 },
+      { Name: 'Bob', Email: 'bob@example.com', Age: 25 },
+      { Name: 'Charlie', Email: 'charlie@example.com', Age: 35 },
+    ];
+
+    // 2. Convert JSON to worksheet
+    const worksheet = XLSX.utils.json_to_sheet(data);
+
+    // 3. Create a new workbook and append the worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Users');
+
+    // 4. Write workbook to buffer
+    const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+    // 5. Send as downloadable file
+    res.setHeader('Content-Disposition', 'attachment; filename=test-users.xlsx');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.send(buffer);
+  } catch (err) {
+    console.error('❌ XLSX test error:', err);
+    res.status(500).send('Failed to generate Excel file');
+  }
+});
+
 
 app.get('/insertRandomUser', async (req, res) => {
   try {

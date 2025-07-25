@@ -49,6 +49,11 @@ kill_port_processes() {
 # Change to application directory
 cd "$DEPLOY_PATH" || { echo "❌ Failed to change to $DEPLOY_PATH"; exit 1; }
 
+# ✅ Install any new dependencies
+echo "📦 Installing dependencies..."
+npm install
+
+
 echo "📁 Current directory: $(pwd)"
 echo "📋 Files in directory:"
 ls -la
