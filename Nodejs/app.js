@@ -166,6 +166,7 @@ app.get('/', (req, res) => {
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
     <p><strong>Memory Used:</strong> ${memory_used} MB</p>
+    <p>Itagi's Updates</p>
   `);
 });
 
