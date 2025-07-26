@@ -16,6 +16,16 @@
     "express-session": "^1.17.3",
     "passport": "^0.6.0",
     "@faker-js/faker": "^8.0.0",
-    "dotenv": "^16.0.3"
+    "dotenv": "^16.0.3",
+    "xlsx": "^0.18.5",
+    "@aws-sdk/client-cloudwatch-logs": "^3.538.0",
+    "ws": "^8.13.0",
+    "response-time": "^2.3.2",
+    "compression": "^1.7.4"
   }
 }
+
+
+
+
+
