@@ -34,6 +34,7 @@ function getServerIpAddress() {
 
 app.get('/test-xlsx', (req, res) => {
   try {
+    console.log('✅ XLSX test endpoint hit');
     // 1. Create sample data
     const data = [
       { Name: 'Alice', Email: 'alice@example.com', Age: 30 },
