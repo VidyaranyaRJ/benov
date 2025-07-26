@@ -145,7 +145,7 @@ app.get('/', (req, res) => {
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
-    <h1>Benevolate - 7/26 - ${environment}</h1>
+    <h1>Benevolate - 7/26 - git demo - ${environment}</h1>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
@@ -154,7 +154,7 @@ app.get('/', (req, res) => {
   });
 
 
-  
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
