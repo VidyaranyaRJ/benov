@@ -165,7 +165,7 @@ app.get('/', (req, res) => {
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
-    <p><strong>Memory Used:</strong> ${memory_used} MB</p>
+    <p><strong>Memoryss Used (rishabs edit):</strong> ${memory_used} MB</p>
   `);
 });
 
