@@ -144,7 +144,7 @@ app.get('/', (req, res) => {
   const current_time = new Date().toLocaleString();
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
-  res.send(`
+  res.send(` 
     <h1>Benevolate - 7/26 - ${environment}</h1>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
