@@ -11,6 +11,8 @@ const logger = require('./js/logger');
 const app = express();
 const XLSX = require('xlsx');
 
+
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -131,23 +133,6 @@ app.get('/health', (req, res) => {
 });
 
 
-// app.get('/', (req, res) => {
-//   res.send('Benevolate');
-// });
-
-// app.get('/', (req, res) => {
-//   const environment = process.env.ENVIRONMENT || 'EC2 (Default)';
-//   const ip_address = getServerIpAddress();
-//   const host_name = os.hostname();
-
-//   res.send(`
-//     <h1>Benevolate - 7/18</h1>
-//     <p><strong>Environment:</strong> ${environment}</p>
-//     <p><strong>Host:</strong> ${host_name}</p>
-//     <p><strong>IP:</strong> ${ip_address}</p>
-//   `);
-// });
-
 
 
 app.get('/', (req, res) => {
@@ -159,18 +144,18 @@ app.get('/', (req, res) => {
   const current_time = new Date().toLocaleString();
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
-  res.send(`
-    <h1>Benevolate - 7/24 - test</h1>
-    <p><strong>Environment:</strong> ${environment}</p>
+  res.send(` 
+    <h1>Benevolate - 7/26 - ${environment}</h1>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
     <p><strong>Memory Used:</strong> ${memory_used} MB</p>
     <p>Itagi's Updates</p>
   `);
-});
+  });
 
 
+  
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
