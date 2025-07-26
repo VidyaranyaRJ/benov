@@ -32,7 +32,7 @@ function getServerIpAddress() {
 
 app.get('/test-xlsx', (req, res) => {
   try {
-    console.log('✅ XLSX test endpoint hit');
+    
     // 1. Create sample data
     const data = [
       { Name: 'Alice', Email: 'alice@example.com', Age: 30 },
@@ -161,7 +161,7 @@ app.get('/', (req, res) => {
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
-    <h1>Benevolate - 7/24 - test</h1>
+    <h1>Benevolat e (rishaabs change) - 7/26 - test</h1>
     <p><strong>Environment:</strong> ${environment}</p>
     <p><strong>Host:</strong> ${host_name}</p>
     <p><strong>IP:</strong> ${ip_address}</p>
