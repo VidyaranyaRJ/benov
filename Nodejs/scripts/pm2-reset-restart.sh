@@ -11,6 +11,7 @@ APP_FILE="app.js"  # or your main application file
 PORT=3000
 DEPLOY_PATH="/mnt/efs/code/nodejs-app"
 
+
 echo "🚀 Starting PM2 application management..."
 
 # Function to check if port is in use
