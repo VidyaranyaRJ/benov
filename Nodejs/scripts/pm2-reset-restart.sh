@@ -80,8 +80,11 @@ if pm2 describe "$APP_NAME" &> /dev/null; then
     LOG_PATH="/mnt/efs/logs/${DATE}-${HOSTNAME}-app.log"
     echo "📁 Using updated log path: $LOG_PATH"
 
-    pm2 delete "$APP_NAME"
-    pm2 start "$APP_FILE" --name "$APP_NAME" --log "$LOG_PATH"
+    # pm2 delete "$APP_NAME"
+    # pm2 start "$APP_FILE" --name "$APP_NAME" --log "$LOG_PATH"
+    echo "📁 Using internal rotating logger from app.js"
+    pm2 delete "$APP_NAME" || true
+    pm2 start "$APP_FILE" --name "$APP_NAME"
 
 else
     echo "🆕 Application '$APP_NAME' not found, starting new instance..."

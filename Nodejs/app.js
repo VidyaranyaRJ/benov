@@ -7,6 +7,7 @@ const os = require('os');
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
 const logger = require('./js/logger');
+require('./js/rotatingLogger');
 
 const app = express();
 const XLSX = require('xlsx');
@@ -62,6 +63,7 @@ app.get('/test-xlsx', (req, res) => {
 });
 
 
+
 app.get('/insertRandomUser', async (req, res) => {
   try {
     const ec2instances = req.query.ec2instances;
@@ -69,7 +71,6 @@ app.get('/insertRandomUser', async (req, res) => {
     const misc = req.query.misc;
     const acu = req.query.acu;
     
-    console.log(testcaseid);
     const name = faker.person.fullName();
     const email = faker.internet.email();
     const userType = faker.helpers.arrayElement(['Admin', 'User', 'Guest']);
@@ -83,12 +84,13 @@ app.get('/insertRandomUser', async (req, res) => {
       [name, email, userType, phone, ip_address, host_name, testcaseid, misc, ec2instances, acu]
     );
 
-    // Pipe-separated console log
-    console.log(host_name, ` | Inserted stress_test_users: ${result.insertId}|${name}`);
+    // ✅ Log in the desired format:
+    console.log(`${host_name} | Inserted stress_test_users: ${result.insertId}|${name}`);
 
     res.json({
       message: 'Random user inserted successfully!',
-      user: { name,
+      user: {
+        name,
         email,
         userType,
         phone,
@@ -97,7 +99,8 @@ app.get('/insertRandomUser', async (req, res) => {
         testcaseid,
         misc,
         ec2instances,
-        acu },
+        acu
+      },
       insertId: result.insertId
     });
   } catch (err) {
@@ -105,6 +108,7 @@ app.get('/insertRandomUser', async (req, res) => {
     res.status(500).json({ message: 'Error inserting user', error: err.message });
   }
 });
+
 
 app.get('/listUsers', async (req, res) => {
   try {
