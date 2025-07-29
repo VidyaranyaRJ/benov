@@ -141,7 +141,8 @@ app.get('/health', (req, res) => {
 //   const host_name = os.hostname();
 
 //   res.send(`
-//     <h1>Benevolate - 7/18</h1>
+//     <h1>Hello from RakhiBranch 👋</h1>
+
 //     <p><strong>Environment:</strong> ${environment}</p>
 //     <p><strong>Host:</strong> ${host_name}</p>
 //     <p><strong>IP:</strong> ${ip_address}</p>
