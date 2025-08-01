@@ -958,6 +958,7 @@ app.get('/insertRandomUser', async (req, res) => {
       user: { name, email, userType, phone, ip_address, host_name },
       insertId: result.insertId
     });
+    logger(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error inserting user', error: err.message });
