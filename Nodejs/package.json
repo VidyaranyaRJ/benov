@@ -26,7 +26,8 @@
     "validator": "^13.11.0",
     "moment": "^2.29.4",
     "lodash": "^4.17.21",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
