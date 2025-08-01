@@ -814,6 +814,20 @@
 #           echo "✅ Cleanup completed"
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 name: Node.js App Deployment via Rsync to EFS (Incremental)
 
 on:
@@ -1131,29 +1145,45 @@ jobs:
 
       # IMPROVED: Always install dependencies when needed, not just on full deploy
       - name: Install Node.js dependencies
-        if: env.DEPLOYMENT_TYPE != 'none' && env.REQUIRES_DEPENDENCIES == 'true'
+        if: env.DEPLOYMENT_TYPE != 'none'
         run: |
-          echo "📦 Installing Node.js dependencies..."
-          
+          echo "📦 Ensuring Node.js dependencies are installed on all EC2s..."
+
           for ip in $EC2_INSTANCE_IPS; do
-            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
-              echo "📦 Installing dependencies on $ip..."
-              
-              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
-                cd $DEPLOY_PATH
-                if [ -f package.json ]; then
-                  echo '📋 Installing npm dependencies...'
-                  # Clear npm cache to avoid issues
-                  npm cache clean --force
-                  # Install dependencies
-                  npm install --production
-                  echo '✅ Dependencies installed successfully'
+            echo "🔧 Installing dependencies on $ip..."
+            
+            ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 ec2-user@$ip <<'EOF'
+              set -e
+              cd /mnt/efs/code/nodejs-app
+
+              if [ ! -f package.json ]; then
+                echo "❌ package.json not found. Skipping..."
+                exit 1
+              fi
+
+              echo "🧹 Cleaning stale modules and lockfile (if any)..."
+              rm -rf node_modules package-lock.json
+
+              echo "📥 Installing dependencies from package.json..."
+              npm install
+
+              echo "✅ Dependencies installed. Verifying..."
+
+              REQUIRED_PKGS=(fs-extra @faker-js/faker)
+
+              for pkg in "${REQUIRED_PKGS[@]}"; do
+                if npm list "$pkg" >/dev/null 2>&1; then
+                  echo "✅ $pkg is available"
                 else
-                  echo '⚠️  No package.json found'
+                  echo "⚠️ $pkg missing. Installing..."
+                  npm install "$pkg"
                 fi
-              "
-            fi
+              done
+
+              echo "📦 All required packages installed on $(hostname)"
+          EOF
           done
+
 
       # IMPROVED: Force dependency installation as emergency fix
       - name: Emergency dependency installation
@@ -1172,7 +1202,7 @@ jobs:
                   # Remove node_modules and package-lock to start fresh
                   rm -rf node_modules package-lock.json
                   # Install dependencies
-                  npm install --production
+                  npm install
                   echo '✅ Emergency dependency installation completed'
                   
                   # Verify fs-extra is installed
