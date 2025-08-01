@@ -397,6 +397,423 @@
 
 
 
+# name: Node.js App Deployment via Rsync to EFS (Incremental)
+
+# on:
+#   push:
+#     branches: [dev, uat, main]
+#   workflow_dispatch:
+#     inputs:
+#       environment:
+#         description: "Environment to deploy (dev, uat, prod)"
+#         required: true
+#         default: dev
+#         type: choice
+#         options: [dev, uat, prod]
+#       force_full_deploy:
+#         description: "Force full deployment (ignore incremental)"
+#         required: false
+#         default: false
+#         type: boolean
+
+# env:
+#   DEPLOY_PATH: /mnt/efs/code/nodejs-app
+#   AWS_REGION: us-east-2
+#   APP_NAME: nodejs-app
+#   APP_PORT: 3000
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0  # Fetch full history for proper diff
+
+#       - name: Set environment name
+#         run: |
+#           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+#             echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
+#             echo "FORCE_FULL_DEPLOY=${{ github.event.inputs.force_full_deploy }}" >> $GITHUB_ENV
+#           elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+#             echo "ENVIRONMENT=prod" >> $GITHUB_ENV
+#             echo "FORCE_FULL_DEPLOY=false" >> $GITHUB_ENV
+#           else
+#             echo "ENVIRONMENT=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+#             echo "FORCE_FULL_DEPLOY=false" >> $GITHUB_ENV
+#           fi
+#           echo "🎯 Deploying to environment: $ENVIRONMENT"
+
+#       - name: Detect changed files
+#         id: changes
+#         run: |
+#           echo "🔍 Detecting file changes..."
+          
+#           # Get the previous commit hash
+#           if [[ "${{ github.event_name }}" == "push" ]]; then
+#             PREV_COMMIT="${{ github.event.before }}"
+#             CURRENT_COMMIT="${{ github.sha }}"
+#           else
+#             # For workflow_dispatch, compare with the previous commit
+#             CURRENT_COMMIT="${{ github.sha }}"
+#             PREV_COMMIT=$(git rev-parse HEAD~1)
+#           fi
+          
+#           echo "Previous commit: $PREV_COMMIT"
+#           echo "Current commit: $CURRENT_COMMIT"
+          
+#           # Check if this is the first commit or force full deploy
+#           if [[ "$PREV_COMMIT" == "0000000000000000000000000000000000000000" ]] || [[ "$FORCE_FULL_DEPLOY" == "true" ]]; then
+#             echo "🔄 First deployment or forced full deployment"
+#             echo "DEPLOYMENT_TYPE=full" >> $GITHUB_ENV
+#             echo "CHANGED_FILES=all" >> $GITHUB_ENV
+#           else
+#             # Get changed files in the Nodejs directory
+#             CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $CURRENT_COMMIT -- Nodejs/ | tr '\n' ' ')
+            
+#             if [[ -z "$CHANGED_FILES" ]]; then
+#               echo "✅ No changes detected in Nodejs directory"
+#               echo "DEPLOYMENT_TYPE=none" >> $GITHUB_ENV
+#               echo "CHANGED_FILES=" >> $GITHUB_ENV
+#             else
+#               echo "📝 Changed files: $CHANGED_FILES"
+#               echo "DEPLOYMENT_TYPE=incremental" >> $GITHUB_ENV
+#               echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
+              
+#               # Check if package.json or critical files changed
+#               if echo "$CHANGED_FILES" | grep -E "(package\.json|package-lock\.json|ecosystem\.config\.js|app\.js)"; then
+#                 echo "🔄 Critical files changed, full restart required"
+#                 echo "REQUIRES_RESTART=true" >> $GITHUB_ENV
+#               else
+#                 echo "📁 Only non-critical files changed"
+#                 echo "REQUIRES_RESTART=false" >> $GITHUB_ENV
+#               fi
+#             fi
+#           fi
+
+#       - name: Skip deployment if no changes
+#         if: env.DEPLOYMENT_TYPE == 'none'
+#         run: |
+#           echo "⏭️  No changes detected in application files. Skipping deployment."
+#           echo "If you want to force a deployment, use workflow_dispatch with force_full_deploy=true"
+
+#       - name: Install dependencies
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         run: |
+#           sudo apt-get update
+#           sudo apt-get install -y unzip curl rsync
+#           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+#           unzip -o awscliv2.zip
+#           sudo ./aws/install --update
+#           aws --version
+
+#       - name: Configure AWS credentials
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: Setup SSH key
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         run: |
+#           echo "${{ secrets.EC2_SSH_KEY }}" > ec2_key.pem
+#           chmod 600 ec2_key.pem
+
+#       - name: Get EC2 instances for deployment
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         id: get_instances
+#         run: |
+#           echo "🔍 Finding EC2 instances for environment: $ENVIRONMENT"
+          
+#           INSTANCES_JSON=$(aws ec2 describe-instances \
+#             --region "$AWS_REGION" \
+#             --filters "Name=tag:Environment,Values=${ENVIRONMENT}" \
+#                       "Name=instance-state-name,Values=running" \
+#             --query 'Reservations[*].Instances[*].[InstanceId,PublicIpAddress,Tags[?Key==`Name`].Value|[0]]' \
+#             --output json)
+          
+#           PUBLIC_IPS=$(echo "$INSTANCES_JSON" | jq -r '.[][] | select(.[1] != null) | .[1]' | tr '\n' ' ')
+          
+#           if [[ -z "$PUBLIC_IPS" || "$PUBLIC_IPS" == " " ]]; then
+#             echo "❌ No running EC2 instances with public IPs found for environment: $ENVIRONMENT"
+#             exit 1
+#           fi
+          
+#           PUBLIC_IPS=$(echo "$PUBLIC_IPS" | xargs)
+#           echo "EC2_INSTANCE_IPS=$PUBLIC_IPS" >> "$GITHUB_ENV"
+#           echo "📋 Found instances with public IPs: $PUBLIC_IPS"
+
+#       - name: Test SSH connectivity
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         run: |
+#           echo "🔧 Testing SSH connectivity..."
+#           SUCCESS_COUNT=0
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o BatchMode=yes ec2-user@$ip "echo 'Connected to $ip'" 2>/dev/null; then
+#               echo "✅ SSH connection successful to $ip"
+#               SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+#             else
+#               echo "❌ SSH connection failed to $ip"
+#             fi
+#           done
+          
+#           if [[ $SUCCESS_COUNT -eq 0 ]]; then
+#             echo "❌ No SSH connections successful. Aborting deployment."
+#             exit 1
+#           fi
+
+#       - name: Deploy application files (Incremental)
+#         if: env.DEPLOYMENT_TYPE == 'incremental'
+#         run: |
+#           echo "🚀 Starting incremental deployment..."
+#           echo "📝 Files to be updated: $CHANGED_FILES"
+#           echo ""
+          
+#           SUCCESS_COUNT=0
+#           TOTAL_FILES_REPLACED=0
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             echo "🎯 Deploying to server: $ip"
+            
+#             if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "❌ Skipping $ip - SSH not accessible"
+#               continue
+#             fi
+            
+#             # Create backup timestamp
+#             BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+#             # Create backup of existing files
+#             echo "📦 Creating backup for existing files..."
+#             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#               mkdir -p $DEPLOY_PATH/backup/$BACKUP_TIMESTAMP
+#               cd $DEPLOY_PATH
+#               for file in $CHANGED_FILES; do
+#                 # Remove 'Nodejs/' prefix for backup
+#                 relative_file=\$(echo \"\$file\" | sed 's|^Nodejs/||')
+#                 if [[ -f \"\$relative_file\" ]]; then
+#                   mkdir -p backup/$BACKUP_TIMESTAMP/\$(dirname \"\$relative_file\") 2>/dev/null || true
+#                   cp -p \"\$relative_file\" backup/$BACKUP_TIMESTAMP/\"\$relative_file\" 2>/dev/null || true
+#                   echo \"📋 Backed up: \$relative_file\"
+#                 fi
+#               done
+#             "
+            
+#             echo ""
+#             echo "🔄 Replacing files on $ip:"
+            
+#             # Deploy only changed files using a more targeted approach
+#             FILES_REPLACED_ON_SERVER=0
+#             for file in $CHANGED_FILES; do
+#               # Remove 'Nodejs/' prefix to get the relative path
+#               relative_file=$(echo "$file" | sed 's|^Nodejs/||')
+              
+#               echo -n "  📄 Replacing: $relative_file ... "
+              
+#               # Create directory structure if needed
+#               dir_path=$(dirname "$relative_file")
+#               if [[ "$dir_path" != "." ]]; then
+#                 ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "mkdir -p $DEPLOY_PATH/$dir_path" >/dev/null 2>&1
+#               fi
+              
+#               # Copy the specific file
+#               if scp -i ec2_key.pem -o StrictHostKeyChecking=no "./Nodejs/$relative_file" "ec2-user@$ip:$DEPLOY_PATH/$relative_file" >/dev/null 2>&1; then
+#                 echo "✅ REPLACED"
+#                 FILES_REPLACED_ON_SERVER=$((FILES_REPLACED_ON_SERVER + 1))
+#               else
+#                 echo "❌ FAILED"
+#               fi
+#             done
+            
+#             TOTAL_FILES_REPLACED=$((TOTAL_FILES_REPLACED + FILES_REPLACED_ON_SERVER))
+#             echo ""
+#             echo "📊 Server $ip: $FILES_REPLACED_ON_SERVER file(s) replaced"
+#             echo "💾 Backup created at: $DEPLOY_PATH/backup/$BACKUP_TIMESTAMP"
+#             echo "✅ Incremental deployment completed for $ip"
+#             echo ""
+#             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+#           done
+          
+#           if [[ $SUCCESS_COUNT -eq 0 ]]; then
+#             echo "❌ No incremental deployments successful"
+#             exit 1
+#           fi
+          
+#           echo "🎉 DEPLOYMENT SUMMARY:"
+#           echo "   📄 Total files replaced across all servers: $TOTAL_FILES_REPLACED"
+#           echo "   🎯 Servers updated: $SUCCESS_COUNT"
+
+#       - name: Deploy application files (Full)
+#         if: env.DEPLOYMENT_TYPE == 'full'
+#         run: |
+#           echo "🚀 Starting full deployment..."
+#           SUCCESS_COUNT=0
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             echo "📁 Full deployment to $ip..."
+            
+#             if ! ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "❌ Skipping $ip - SSH not accessible"
+#               continue
+#             fi
+            
+#             # Create deployment directory
+#             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "sudo mkdir -p $DEPLOY_PATH && sudo chown ec2-user:ec2-user $DEPLOY_PATH"
+            
+#             # Create backup of existing application files (not manual files)
+#             ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#               if [ -d $DEPLOY_PATH ] && [ \"\$(ls -A $DEPLOY_PATH 2>/dev/null)\" ]; then
+#                 mkdir -p $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)
+#                 # Only backup known application files, not manual additions
+#                 for item in app.js package.json package-lock.json ecosystem.config.js routes views public controllers models middleware config; do
+#                   if [ -e $DEPLOY_PATH/\$item ]; then
+#                     cp -r $DEPLOY_PATH/\$item $DEPLOY_PATH/backup/\$(date +%Y%m%d_%H%M%S)/ 2>/dev/null || true
+#                   fi
+#                 done
+#               fi
+#             "
+            
+#             # Full sync WITHOUT --delete to preserve manual files
+#             if rsync -avz \
+#               -e "ssh -i ec2_key.pem -o StrictHostKeyChecking=no" \
+#               --exclude='node_modules/' \
+#               --exclude='.git/' \
+#               --exclude='*.log' \
+#               --exclude='.env' \
+#               --exclude='backup/' \
+#               ./Nodejs/ ec2-user@$ip:$DEPLOY_PATH/; then
+#               echo "✅ Full deployment completed for $ip"
+#               SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+#             else
+#               echo "❌ Full deployment failed for $ip"
+#             fi
+#           done
+          
+#           if [[ $SUCCESS_COUNT -eq 0 ]]; then
+#             echo "❌ No full deployments successful"
+#             exit 1
+#           fi
+
+#       - name: Install Node.js dependencies
+#         if: env.DEPLOYMENT_TYPE != 'none' && (env.DEPLOYMENT_TYPE == 'full' || env.REQUIRES_RESTART == 'true')
+#         run: |
+#           echo "📦 Installing Node.js dependencies..."
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "📦 Installing dependencies on $ip..."
+              
+#               ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#                 cd $DEPLOY_PATH
+#                 if [ -f package.json ]; then
+#                   echo '📋 Installing npm dependencies...'
+#                   npm install --production
+#                 else
+#                   echo '⚠️  No package.json found'
+#                 fi
+#               "
+#             fi
+#           done
+
+#       - name: Restart application (if needed)
+#         if: env.DEPLOYMENT_TYPE != 'none' && (env.DEPLOYMENT_TYPE == 'full' || env.REQUIRES_RESTART == 'true')
+#         run: |
+#           echo "🔄 Restarting application..."
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "🔄 Restarting application on $ip..."
+              
+#               ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#                 cd $DEPLOY_PATH
+                
+#                 if pm2 describe $APP_NAME &> /dev/null; then
+#                   echo '🔄 Restarting existing PM2 process...'
+#                   pm2 restart $APP_NAME
+#                 else
+#                   echo '🆕 Starting new PM2 process...'
+#                   if [ -f ecosystem.config.js ]; then
+#                     pm2 start ecosystem.config.js
+#                   else
+#                     pm2 start app.js --name $APP_NAME
+#                   fi
+#                 fi
+                
+#                 # Wait and verify
+#                 sleep 5
+#                 pm2 list
+#                 pm2 save
+#               "
+#             fi
+#           done
+
+#       - name: Reload application (for minor changes)
+#         if: env.DEPLOYMENT_TYPE == 'incremental' && env.REQUIRES_RESTART == 'false'
+#         run: |
+#           echo "🔄 Reloading application (graceful)..."
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "🔄 Reloading application on $ip..."
+              
+#               ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#                 cd $DEPLOY_PATH
+                
+#                 if pm2 describe $APP_NAME &> /dev/null; then
+#                   echo '🔄 Gracefully reloading PM2 process...'
+#                   pm2 reload $APP_NAME
+#                 else
+#                   echo 'ℹ️  No PM2 process found, application may not need restart'
+#                 fi
+#               "
+#             fi
+#           done
+
+#       - name: Verify deployment
+#         if: env.DEPLOYMENT_TYPE != 'none'
+#         run: |
+#           echo "🔍 Verifying deployment..."
+          
+#           for ip in $EC2_INSTANCE_IPS; do
+#             if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+#               echo "🔍 Verifying $ip..."
+              
+#               ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+#                 echo '📊 PM2 Status:'
+#                 pm2 list
+                
+#                 echo '📊 Application Health:'
+#                 if pm2 describe $APP_NAME | grep -q 'online'; then
+#                   echo '✅ Application is online'
+#                 else
+#                   echo '❌ Application is not online'
+#                 fi
+                
+#                 echo '📊 Recent Logs:'
+#                 pm2 logs $APP_NAME --lines 5 --nostream || echo 'No logs available'
+#               "
+#             fi
+#           done
+          
+#           echo "✅ Deployment verification completed"
+#           echo "📋 Deployment Summary:"
+#           echo "   - Type: $DEPLOYMENT_TYPE"
+#           echo "   - Changed files: $CHANGED_FILES"
+#           echo "   - Restart required: ${REQUIRES_RESTART:-false}"
+
+#       - name: Cleanup
+#         if: always()
+#         run: |
+#           echo "🧹 Cleaning up..."
+#           rm -f ec2_key.pem
+#           echo "✅ Cleanup completed"
+
+
 name: Node.js App Deployment via Rsync to EFS (Incremental)
 
 on:
@@ -469,6 +886,8 @@ jobs:
             echo "🔄 First deployment or forced full deployment"
             echo "DEPLOYMENT_TYPE=full" >> $GITHUB_ENV
             echo "CHANGED_FILES=all" >> $GITHUB_ENV
+            echo "REQUIRES_RESTART=true" >> $GITHUB_ENV
+            echo "REQUIRES_DEPENDENCIES=true" >> $GITHUB_ENV
           else
             # Get changed files in the Nodejs directory
             CHANGED_FILES=$(git diff --name-only $PREV_COMMIT $CURRENT_COMMIT -- Nodejs/ | tr '\n' ' ')
@@ -477,13 +896,24 @@ jobs:
               echo "✅ No changes detected in Nodejs directory"
               echo "DEPLOYMENT_TYPE=none" >> $GITHUB_ENV
               echo "CHANGED_FILES=" >> $GITHUB_ENV
+              echo "REQUIRES_RESTART=false" >> $GITHUB_ENV
+              echo "REQUIRES_DEPENDENCIES=false" >> $GITHUB_ENV
             else
               echo "📝 Changed files: $CHANGED_FILES"
               echo "DEPLOYMENT_TYPE=incremental" >> $GITHUB_ENV
               echo "CHANGED_FILES=$CHANGED_FILES" >> $GITHUB_ENV
               
               # Check if package.json or critical files changed
-              if echo "$CHANGED_FILES" | grep -E "(package\.json|package-lock\.json|ecosystem\.config\.js|app\.js)"; then
+              if echo "$CHANGED_FILES" | grep -E "(package\.json|package-lock\.json)"; then
+                echo "📦 Package files changed, dependencies need to be installed"
+                echo "REQUIRES_DEPENDENCIES=true" >> $GITHUB_ENV
+                echo "REQUIRES_RESTART=true" >> $GITHUB_ENV
+              else
+                echo "REQUIRES_DEPENDENCIES=false" >> $GITHUB_ENV
+              fi
+              
+              # Check if other critical files changed
+              if echo "$CHANGED_FILES" | grep -E "(ecosystem\.config\.js|app\.js)"; then
                 echo "🔄 Critical files changed, full restart required"
                 echo "REQUIRES_RESTART=true" >> $GITHUB_ENV
               else
@@ -699,8 +1129,9 @@ jobs:
             exit 1
           fi
 
+      # IMPROVED: Always install dependencies when needed, not just on full deploy
       - name: Install Node.js dependencies
-        if: env.DEPLOYMENT_TYPE != 'none' && (env.DEPLOYMENT_TYPE == 'full' || env.REQUIRES_RESTART == 'true')
+        if: env.DEPLOYMENT_TYPE != 'none' && env.REQUIRES_DEPENDENCIES == 'true'
         run: |
           echo "📦 Installing Node.js dependencies..."
           
@@ -712,7 +1143,45 @@ jobs:
                 cd $DEPLOY_PATH
                 if [ -f package.json ]; then
                   echo '📋 Installing npm dependencies...'
+                  # Clear npm cache to avoid issues
+                  npm cache clean --force
+                  # Install dependencies
                   npm install --production
+                  echo '✅ Dependencies installed successfully'
+                else
+                  echo '⚠️  No package.json found'
+                fi
+              "
+            fi
+          done
+
+      # IMPROVED: Force dependency installation as emergency fix
+      - name: Emergency dependency installation
+        if: env.DEPLOYMENT_TYPE != 'none'
+        run: |
+          echo "🚨 Emergency: Ensuring all dependencies are installed..."
+          
+          for ip in $EC2_INSTANCE_IPS; do
+            if ssh -i ec2_key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes ec2-user@$ip "echo 'test'" >/dev/null 2>&1; then
+              echo "🚨 Force installing dependencies on $ip..."
+              
+              ssh -i ec2_key.pem -o StrictHostKeyChecking=no ec2-user@$ip "
+                cd $DEPLOY_PATH
+                if [ -f package.json ]; then
+                  echo '🚨 Force installing all dependencies...'
+                  # Remove node_modules and package-lock to start fresh
+                  rm -rf node_modules package-lock.json
+                  # Install dependencies
+                  npm install --production
+                  echo '✅ Emergency dependency installation completed'
+                  
+                  # Verify fs-extra is installed
+                  if npm list fs-extra >/dev/null 2>&1; then
+                    echo '✅ fs-extra is now available'
+                  else
+                    echo '⚠️  fs-extra not found, installing specifically...'
+                    npm install fs-extra --save
+                  fi
                 else
                   echo '⚠️  No package.json found'
                 fi
@@ -721,7 +1190,7 @@ jobs:
           done
 
       - name: Restart application (if needed)
-        if: env.DEPLOYMENT_TYPE != 'none' && (env.DEPLOYMENT_TYPE == 'full' || env.REQUIRES_RESTART == 'true')
+        if: env.DEPLOYMENT_TYPE != 'none' && env.REQUIRES_RESTART == 'true'
         run: |
           echo "🔄 Restarting application..."
           
@@ -794,8 +1263,16 @@ jobs:
                   echo '❌ Application is not online'
                 fi
                 
+                echo '📊 Dependencies Check:'
+                cd $DEPLOY_PATH
+                if npm list fs-extra >/dev/null 2>&1; then
+                  echo '✅ fs-extra dependency is available'
+                else
+                  echo '❌ fs-extra dependency is missing'
+                fi
+                
                 echo '📊 Recent Logs:'
-                pm2 logs $APP_NAME --lines 5 --nostream || echo 'No logs available'
+                pm2 logs $APP_NAME --lines 10 --nostream || echo 'No logs available'
               "
             fi
           done
@@ -805,6 +1282,7 @@ jobs:
           echo "   - Type: $DEPLOYMENT_TYPE"
           echo "   - Changed files: $CHANGED_FILES"
           echo "   - Restart required: ${REQUIRES_RESTART:-false}"
+          echo "   - Dependencies installed: ${REQUIRES_DEPENDENCIES:-false}"
 
       - name: Cleanup
         if: always()
