@@ -1074,4 +1074,3 @@ app.listen(PORT, () => {
   console.log(`Environment: ${process.env.ENVIRONMENT || 'development'}`);
   console.log(`Host: ${os.hostname()}`);
 });
-
