@@ -6,7 +6,7 @@
 
 // const { faker } = require('@faker-js/faker');
 // const { promiseDB } = require('./js/db');
-// const logger = require('./js/logger');
+// const console.log = require('./js/console.log');
 
 // const app = express();
 // const XLSX = require('xlsx');
@@ -190,7 +190,7 @@
 // const AWS = require('aws-sdk');
 // const { faker } = require('@faker-js/faker');
 // const { promiseDB } = require('./js/db');
-// const logger = require('./js/logger');
+// const console.log = require('./js/console.log');
 
 // const app = express();
 // const XLSX = require('xlsx');
@@ -477,6 +477,7 @@
 
 
 require('dotenv').config();
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -486,18 +487,12 @@ const fs = require('fs-extra');
 const AWS = require('aws-sdk');
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
-// const logger = require('./js/logger');
+// const console.log = require('./js/console.log');
 const XLSX = require('xlsx');
 
 const app = express();
 
-logger: (req, ...messages) => {
-    if (req.session?.isAuthenticated) {
-      console.log(`${new Date().toLocaleString()} | ${req.session.user.org_id} | ${req.session.user_id} | ${messages.join(' ')}`);
-    } else {
-      console.log(`${new Date().toLocaleString()} | ${messages.join(' ')}`);
-    }
-  }
+
 
 
 
@@ -969,7 +964,7 @@ app.get('/insertRandomUser', async (req, res) => {
       user: { name, email, userType, phone, ip_address, host_name },
       insertId: result.insertId
     });
-    logger(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+    console.log(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error inserting user', error: err.message });
