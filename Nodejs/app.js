@@ -1004,6 +1004,19 @@ app.get('/', (req, res) => {
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
   res.send(`
+
+    <h1>Benevolate - 7/24 - test</h1>
+    <p><strong>Environment:</strong> ${environment}</p>
+    <p><strong>Host:</strong> ${host_name}</p>
+    <p><strong>IP:</strong> ${ip_address}</p>
+    <p><strong>Time:</strong> ${current_time}</p>
+    <p><strong>Memory Used:</strong> ${memory_used} MB</p>
+
+    <br>
+    <a href="/login">
+      <button style="padding: 8px 16px; font-size: 16px;">Login</button>
+    </a>
+
     <!DOCTYPE html>
     <html>
     <head>
@@ -1040,6 +1053,7 @@ app.get('/', (req, res) => {
         </div>
     </body>
     </html>
+
   `);
 });
 
@@ -1072,7 +1086,36 @@ app.use((err, req, res, next) => {
   });
 });
 
+
+const session = require('express-session');
+const path = require('path');
+
+// Middleware
+
+app.use(session({
+  secret: 'any-secret',
+  resave: false,
+  saveUninitialized: true
+}));
+
+
+
+app.get('/login', (req, res) => {
+  res.render('login'); // login.ejs
+});
+
+app.post('/login', (req, res) => {
+  // Always log in regardless of credentials
+  req.session.isAuthenticated = true;
+  req.session.user = { email: req.body.email };
+  res.redirect('/');
+});
+
+
+
+
 // Start the server
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
