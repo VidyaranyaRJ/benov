@@ -154,8 +154,6 @@ app.get('/', (req, res) => {
   const environment = process.env.ENVIRONMENT || 'EC2 (Default)';
   const ip_address = getServerIpAddress();
   const host_name = os.hostname();
-
-
   const current_time = new Date().toLocaleString();
   const memory_used = ((os.totalmem() - os.freemem()) / 1024 / 1024).toFixed(2); // in MB
 
@@ -166,8 +164,40 @@ app.get('/', (req, res) => {
     <p><strong>IP:</strong> ${ip_address}</p>
     <p><strong>Time:</strong> ${current_time}</p>
     <p><strong>Memory Used:</strong> ${memory_used} MB</p>
+
+    <br>
+    <a href="/login">
+      <button style="padding: 8px 16px; font-size: 16px;">Login</button>
+    </a>
   `);
 });
+
+
+const session = require('express-session');
+const path = require('path');
+
+// Middleware
+
+app.use(session({
+  secret: 'any-secret',
+  resave: false,
+  saveUninitialized: true
+}));
+
+
+
+app.get('/login', (req, res) => {
+  res.render('login'); // login.ejs
+});
+
+app.post('/login', (req, res) => {
+  // Always log in regardless of credentials
+  req.session.isAuthenticated = true;
+  req.session.user = { email: req.body.email };
+  res.redirect('/');
+});
+
+
 
 
 const PORT = process.env.PORT || 3000;
