@@ -486,10 +486,21 @@ const fs = require('fs-extra');
 const AWS = require('aws-sdk');
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
-const logger = require('./js/logger');
+// const logger = require('./js/logger');
 const XLSX = require('xlsx');
 
 const app = express();
+
+logger: (req, ...messages) => {
+    if (req.session?.isAuthenticated) {
+      console.log(`${new Date().toLocaleString()} | ${req.session.user.org_id} | ${req.session.user_id} | ${messages.join(' ')}`);
+    } else {
+      console.log(`${new Date().toLocaleString()} | ${messages.join(' ')}`);
+    }
+  }
+
+
+
 
 // Ensure required directories exist before setting up multer
 const setupDirectories = async () => {
