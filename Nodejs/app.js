@@ -488,6 +488,7 @@ const AWS = require('aws-sdk');
 const { faker } = require('@faker-js/faker');
 const { promiseDB } = require('./js/db');
 // const console.log = require('./js/console.log');
+const { logger } = require('./js/logger');
 const XLSX = require('xlsx');
 
 const app = express();
@@ -964,7 +965,9 @@ app.get('/insertRandomUser', async (req, res) => {
       user: { name, email, userType, phone, ip_address, host_name },
       insertId: result.insertId
     });
-    console.log(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+    // console.log(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+    logger(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error inserting user', error: err.message });
