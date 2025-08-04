@@ -966,8 +966,10 @@ app.get('/insertRandomUser', async (req, res) => {
       insertId: result.insertId
     });
     // console.log(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
-    logger(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+    // logger(req, `Inserted stress_test_users: ${result.insertId} | ${name}`);
+    logger({ session: { user_id: result.insertId, user: { org_id: 'NA' } } }, `Inserted stress_test_users: ${result.insertId} | ${name}`);
 
+    
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Error inserting user', error: err.message });
