@@ -142,68 +142,184 @@
 
 
 
+// const fs = require('fs');
+// const os = require('os');
+// const path = require('path');
+
+// // Cache the log file path based on app start time
+// let cachedLogFile = null;
+
+// const getLogFile = () => {
+//   if (!cachedLogFile) {
+//     const date = new Date();
+//     const host = os.hostname();
+//     const logDir = '/mnt/efs/logs';
+//     const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
+//     const logFile = `${dateStr}-${host}-app.log`;
+//     cachedLogFile = path.join(logDir, logFile);
+//     // 🔇 Removed console.log to keep stdout clean
+//   }
+//   return cachedLogFile;
+// };
+
+// // Optional rotation logic
+// const rotateLogFile = () => {
+//   const date = new Date();
+//   const host = os.hostname();
+//   const logDir = '/mnt/efs/logs';
+//   const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
+//   const logFile = `${dateStr}-${host}-app.log`;
+//   cachedLogFile = path.join(logDir, logFile);
+//   return cachedLogFile;
+// };
+
+// const logger = (req, ...messages) => {
+//   // Format timestamp: ISO string with offset
+//   const date = new Date();
+//   const tzOffsetMin = date.getTimezoneOffset(); // minutes
+//   const absOffset = Math.abs(tzOffsetMin);
+//   const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+//   const offsetMinutes = String(absOffset % 60).padStart(2, '0');
+//   const offsetSign = tzOffsetMin > 0 ? '-' : '+';
+//   const isoWithOffset = date.toISOString().replace('Z', `${offsetSign}${offsetHours}:${offsetMinutes}`);
+
+//   const host = os.hostname();
+//   const orgId = req?.session?.user?.org_id || 'NA';
+//   const userId = req?.session?.user_id || 'NA';
+
+//   const line = `${isoWithOffset} | ${orgId} | ${userId} | ${host} | ${messages.join(' ')}`;
+
+//   // Log to stdout
+//   console.log(line);
+
+//   // Append to file
+//   try {
+//     const fullPath = getLogFile();
+//     fs.appendFileSync(fullPath, line + '\n', 'utf8');
+//   } catch (err) {
+//     console.error(`❌ Failed to write to log file: ${err.message}`);
+//   }
+// };
+
+// // Export both
+// module.exports = {
+//   logger,
+//   rotateLogFile
+// };
+// module.exports.default = logger;
+
+
+
+
+
+
+
+
+
+
+// ==========================================
+// FIXED logger.js
+// ==========================================
+
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// Cache the log file path based on app start time
-let cachedLogFile = null;
-
+// Don't cache the log file path - generate it fresh each time for daily rotation
 const getLogFile = () => {
-  if (!cachedLogFile) {
-    const date = new Date();
-    const host = os.hostname();
-    const logDir = '/mnt/efs/logs';
-    const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
-    const logFile = `${dateStr}-${host}-app.log`;
-    cachedLogFile = path.join(logDir, logFile);
-    // 🔇 Removed console.log to keep stdout clean
-  }
-  return cachedLogFile;
-};
-
-// Optional rotation logic
-const rotateLogFile = () => {
   const date = new Date();
   const host = os.hostname();
   const logDir = '/mnt/efs/logs';
-  const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD
+  
+  // Use UTC date for consistency with CloudWatch config
+  const dateStr = date.toISOString().slice(0, 10); // YYYY-MM-DD in UTC
   const logFile = `${dateStr}-${host}-app.log`;
-  cachedLogFile = path.join(logDir, logFile);
-  return cachedLogFile;
+  
+  return path.join(logDir, logFile);
+};
+
+// Force rotation to new date (useful for testing)
+const rotateLogFile = () => {
+  // This function now just returns the current log file since we don't cache
+  return getLogFile();
+};
+
+// Test function to simulate tomorrow's log file
+const getTomorrowLogFile = () => {
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  
+  const host = os.hostname();
+  const logDir = '/mnt/efs/logs';
+  const dateStr = tomorrow.toISOString().slice(0, 10); // YYYY-MM-DD
+  const logFile = `${dateStr}-${host}-app.log`;
+  
+  return path.join(logDir, logFile);
 };
 
 const logger = (req, ...messages) => {
-  // Format timestamp: ISO string with offset
   const date = new Date();
-  const tzOffsetMin = date.getTimezoneOffset(); // minutes
-  const absOffset = Math.abs(tzOffsetMin);
-  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-  const offsetMinutes = String(absOffset % 60).padStart(2, '0');
-  const offsetSign = tzOffsetMin > 0 ? '-' : '+';
-  const isoWithOffset = date.toISOString().replace('Z', `${offsetSign}${offsetHours}:${offsetMinutes}`);
-
+  
+  // Format timestamp to match CloudWatch config: "%Y-%m-%dT%H:%M:%S.%fZ"
+  const isoTimestamp = date.toISOString(); // Already in UTC with Z suffix
+  
   const host = os.hostname();
   const orgId = req?.session?.user?.org_id || 'NA';
   const userId = req?.session?.user_id || 'NA';
 
-  const line = `${isoWithOffset} | ${orgId} | ${userId} | ${host} | ${messages.join(' ')}`;
+  const line = `${isoTimestamp} | ${orgId} | ${userId} | ${host} | ${messages.join(' ')}`;
 
   // Log to stdout
-  console.log(line);
+  // console.log(line);
 
-  // Append to file
+  // Append to file (gets current date each time - enables daily rotation)
   try {
     const fullPath = getLogFile();
+    
+    // Ensure directory exists
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
     fs.appendFileSync(fullPath, line + '\n', 'utf8');
   } catch (err) {
     console.error(`❌ Failed to write to log file: ${err.message}`);
   }
 };
 
-// Export both
+// Test function to create tomorrow's log file (for testing)
+const testTomorrowLog = (message = 'Test log entry for tomorrow') => {
+  const tomorrow = new Date();
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  
+  const isoTimestamp = tomorrow.toISOString();
+  const host = os.hostname();
+  const line = `${isoTimestamp} | TEST | TEST | ${host} | ${message}`;
+  
+  try {
+    const fullPath = getTomorrowLogFile();
+    const dir = path.dirname(fullPath);
+    
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    
+    fs.appendFileSync(fullPath, line + '\n', 'utf8');
+    console.log(`✅ Tomorrow's test log created: ${fullPath}`);
+    return fullPath;
+  } catch (err) {
+    console.error(`❌ Failed to create tomorrow's test log: ${err.message}`);
+    return null;
+  }
+};
+
+// Export functions
 module.exports = {
   logger,
-  rotateLogFile
+  rotateLogFile,
+  getLogFile,
+  getTomorrowLogFile,
+  testTomorrowLog
 };
 module.exports.default = logger;
