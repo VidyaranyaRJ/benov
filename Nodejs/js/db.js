@@ -1,16 +1,31 @@
 require('dotenv').config();
 const mysql = require('mysql2');
 
-// ------------------- SINGLE CONNECTION (Legacy) -------------------
+// ------------------- CONNECTION POOL -------------------
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  dateStrings: ['DATE', 'DATETIME'],
+  timezone: '+00:00',
+  // No timeout options - handled automatically by MySQL2 v3+
+});
 
+// ------------------- SINGLE CONNECTION -------------------  
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   dateStrings: ['DATE', 'DATETIME'],
-  timezone: '+00:00'
+  timezone: '+00:00',
 });
+
+const promiseDB = pool.promise();
 
 const dbConnect = () => {
   db.connect(err => {
@@ -22,24 +37,16 @@ const dbConnect = () => {
   });
 };
 
-// ------------------- CONNECTION POOL -------------------
-
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  database: process.env.DB_NAME,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  dateStrings: ['DATE', 'DATETIME'],
-  timezone: '+00:00'
+pool.on('connection', function (connection) {
+  console.log('New connection established as id ' + connection.threadId);
 });
 
-const promiseDB = pool.promise();
-
-
-// ------------------- EXPORT ALL -------------------
+pool.on('error', function(err) {
+  console.error('Database pool error:', err);
+  if(err.code === 'PROTOCOL_CONNECTION_LOST') {
+    console.log('Connection was closed, will reconnect...');
+  }
+});
 
 module.exports = {
   db,
@@ -47,4 +54,3 @@ module.exports = {
   pool,
   dbConnect
 };
-
