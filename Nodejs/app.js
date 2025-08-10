@@ -1024,7 +1024,7 @@ app.get('/', (req, res) => {
     </head>
     <body>
         <div class="container">
-            <h1>🏢 Benevolate - 8/04</h1>
+            <h1>🏢 Benevolate - ${environment}</h1>
             
             <div class="info-box">
                 <p><strong>Environment:</strong> ${environment}</p>
