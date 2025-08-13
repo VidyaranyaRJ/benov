@@ -69,6 +69,7 @@ if ! command -v pm2 &> /dev/null; then
     exit 1
 fi
 
+
 # Get current PM2 processes
 echo "🔍 Checking current PM2 processes..."
 pm2 list

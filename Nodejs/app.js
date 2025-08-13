@@ -497,7 +497,6 @@ const app = express();
 
 
 
-
 // Ensure required directories exist before setting up multer
 const setupDirectories = async () => {
   const requiredDirs = [
